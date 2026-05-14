@@ -142,6 +142,21 @@ export const toggleBannerStatus = createAsyncThunk(
   },
 );
 
+// Reorder banners
+export const reorderBanners = createAsyncThunk(
+  "banners/reorder",
+  async (orderedIds, { rejectWithValue }) => {
+    try {
+      const response = await api.patch("/banners/reorder", { orderedIds });
+      return { ...response.data, orderedIds };
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to reorder banners.",
+      );
+    }
+  },
+);
+
 const bannerSlice = createSlice({
   name: "banners",
   initialState,
@@ -287,6 +302,28 @@ const bannerSlice = createSlice({
       })
       .addCase(toggleBannerStatus.rejected, (state, action) => {
         state.loading = false;
+        state.error = action.payload;
+      })
+      // Reorder
+      .addCase(reorderBanners.pending, (state) => {
+        state.error = null;
+      })
+      .addCase(reorderBanners.fulfilled, (state, action) => {
+        const { orderedIds } = action.payload;
+        const map = new Map(state.banners.map((b) => [b._id, b]));
+        const next = [];
+        orderedIds.forEach((id, idx) => {
+          const b = map.get(id);
+          if (b) next.push({ ...b, order: idx });
+        });
+        // Preserve any banner not present in orderedIds (defensive)
+        state.banners.forEach((b) => {
+          if (!orderedIds.includes(b._id)) next.push(b);
+        });
+        state.banners = next;
+        state.message = action.payload.message || "Banners reordered.";
+      })
+      .addCase(reorderBanners.rejected, (state, action) => {
         state.error = action.payload;
       });
   },

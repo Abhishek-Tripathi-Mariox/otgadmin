@@ -17,13 +17,13 @@ body {
     @apply bg-primary-600;
   }
   .btn-secondary {
-    @apply px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-lg transition-colors shadow-sm;
+    @apply px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-lg transition-colors shadow-sm flex items-center justify-center gap-2;
   }
   .btn-secondary:hover {
     @apply bg-gray-50;
   }
   .btn-danger {
-    @apply px-4 py-2 bg-red-500 text-white rounded-lg transition-colors shadow-sm;
+    @apply px-4 py-2 bg-red-500 text-white rounded-lg transition-colors shadow-sm flex items-center justify-center gap-2;
   }
   .btn-danger:hover {
     @apply bg-red-600;

@@ -129,7 +129,7 @@ export default function Login() {
                 label="Email Address"
                 type="email"
                 name="email"
-                placeholder="admin@example.com"
+                placeholder="admin@otg.com"
                 value={formData.email}
                 onChange={handleChange}
                 error={errors.email}
@@ -180,28 +180,6 @@ export default function Login() {
               </button>
             </form>
 
-            {/* Demo Credentials */}
-            <div className="pt-6 mt-8 border-t border-gray-200">
-              <p className="mb-4 text-xs font-medium text-center text-gray-500">
-                Demo Credentials
-              </p>
-              <div className="p-4 space-y-2 border border-orange-100 rounded-lg bg-orange-50">
-                <p className="text-xs text-gray-700">
-                  <span className="font-semibold text-orange-600">Email:</span>
-                  <code className="px-2 py-1 ml-2 font-mono text-orange-700 bg-white rounded">
-                    admin@example.com
-                  </code>
-                </p>
-                <p className="text-xs text-gray-700">
-                  <span className="font-semibold text-orange-600">
-                    Password:
-                  </span>
-                  <code className="px-2 py-1 ml-2 font-mono text-orange-700 bg-white rounded">
-                    any password
-                  </code>
-                </p>
-              </div>
-            </div>
           </div>
 
           {/* Footer */}

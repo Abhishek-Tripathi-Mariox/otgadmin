@@ -24,31 +24,45 @@ import {
   Bell,
   Store,
   Truck,
+  UserPlus,
+  Image,
+  ClipboardList,
+  Ticket,
+  LifeBuoy,
+  Headphones,
 } from "lucide-react";
 import { Link, useLocation, Outlet, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { useDispatch } from "react-redux";
-import { logout } from "../../store/slices/authSlice";
+import { logout, getProfile } from "../../store/slices/authSlice";
+import usePermission from "../../hooks/usePermission";
 
 export default function AdminLayout({ children }) {
   const location = useLocation();
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const { can, isSuperAdmin } = usePermission();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [openMenus, setOpenMenus] = useState({});
+
+  // Refresh profile on mount so permissions stay current after role edits
+  useEffect(() => {
+    dispatch(getProfile());
+  }, [dispatch]);
 
   const toggleMenu = (key) => {
     setOpenMenus((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
-  // Sidebar sections
-  const sidebarSections = [
+  // Sidebar sections — every item declares the permission module it requires
+  const rawSidebarSections = [
     {
       label: "Operations",
       items: [
-        { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard" },
-        { icon: Layers, label: "Bookings", path: "/bookings" },
-        { icon: CreditCard, label: "Transactions", path: "/transactions" },
+        { icon: LayoutDashboard, label: "Dashboard", path: "/dashboard", perm: "dashboard" },
+        { icon: Layers, label: "Bookings", path: "/bookings", perm: "bookings" },
+        { icon: ClipboardList, label: "Quotations", path: "/quotations", perm: "bookings" },
+        { icon: CreditCard, label: "Transactions", path: "/transactions", perm: "transactions" },
       ],
     },
     {
@@ -59,9 +73,9 @@ export default function AdminLayout({ children }) {
           label: "Material Management",
           key: "material",
           subItems: [
-            { icon: FolderOpen, label: "Categories", path: "/categories" },
-            { icon: Grid3X3, label: "Sub Categories", path: "/sub-categories" },
-            { icon: Box, label: "Materials", path: "/materials" },
+            { icon: FolderOpen, label: "Categories", path: "/categories", perm: "categories" },
+            { icon: Grid3X3, label: "Sub Categories", path: "/sub-categories", perm: "subCategories" },
+            { icon: Box, label: "Materials", path: "/materials", perm: "materials" },
           ],
         },
       ],
@@ -69,9 +83,22 @@ export default function AdminLayout({ children }) {
     {
       label: "Domain Management",
       items: [
-        { icon: Users, label: "Users", path: "/users" },
-        { icon: Store, label: "Vendors", path: "/vendors" },
-        { icon: Truck, label: "Drivers", path: "/drivers" },
+        { icon: Users, label: "Users", path: "/users", perm: "users" },
+        {
+          icon: Store,
+          label: "Vendors",
+          key: "vendors",
+          subItems: [
+            { icon: Store, label: "Vendors", path: "/vendors", perm: "vendors" },
+            {
+              icon: UserPlus,
+              label: "New Sellers Requests",
+              path: "/vendors/seller-requests",
+              perm: "vendors",
+            },
+          ],
+        },
+        { icon: Truck, label: "Drivers", path: "/drivers", perm: "drivers" },
       ],
     },
     {
@@ -82,8 +109,8 @@ export default function AdminLayout({ children }) {
           label: "Staff Management",
           key: "staff",
           subItems: [
-            { icon: UserCog, label: "Staff", path: "/staff" },
-            { icon: KeyRound, label: "Roles & Permissions", path: "/roles" },
+            { icon: UserCog, label: "Staff", path: "/staff", perm: "staff" },
+            { icon: KeyRound, label: "Roles & Permissions", path: "/roles", perm: "roles" },
           ],
         },
       ],
@@ -91,8 +118,26 @@ export default function AdminLayout({ children }) {
     {
       label: "Content",
       items: [
-        { icon: FileText, label: "CMS Management", path: "/cms" },
-        { icon: Bell, label: "Notifications", path: "/notifications" },
+        {
+          icon: FileText,
+          label: "CMS Management",
+          key: "cms",
+          subItems: [
+            { icon: FileText, label: "Overview", path: "/cms", perm: "cms" },
+            { icon: Image, label: "Homepage Banners", path: "/cms/home-banners", perm: "cms" },
+          ],
+        },
+        { icon: Ticket, label: "Offers & Coupons", path: "/offers", perm: "offers" },
+        {
+          icon: LifeBuoy,
+          label: "Help & Support",
+          key: "help",
+          subItems: [
+            { icon: Headphones, label: "Help Settings", path: "/help/settings", perm: "cms" },
+            { icon: LifeBuoy, label: "Support Tickets", path: "/help/tickets", perm: "cms" },
+          ],
+        },
+        { icon: Bell, label: "Notifications", path: "/notifications", perm: "notifications" },
       ],
     },
     {
@@ -102,6 +147,7 @@ export default function AdminLayout({ children }) {
           icon: Settings,
           label: "Configurations",
           key: "config",
+          adminOnly: true,
           subItems: [
             { icon: MapPin, label: "Google API", path: "/config/google-api" },
             { icon: Flame, label: "Firebase", path: "/config/firebase" },
@@ -112,6 +158,26 @@ export default function AdminLayout({ children }) {
       ],
     },
   ];
+
+  const sidebarSections = rawSidebarSections
+    .map((section) => ({
+      ...section,
+      items: section.items
+        .map((item) => {
+          if (item.subItems) {
+            if (item.adminOnly && !isSuperAdmin) return null;
+            const allowedSubs = item.subItems.filter((sub) =>
+              sub.perm ? can(sub.perm, "view") : true,
+            );
+            if (!allowedSubs.length) return null;
+            return { ...item, subItems: allowedSubs };
+          }
+          if (item.perm && !can(item.perm, "view")) return null;
+          return item;
+        })
+        .filter(Boolean),
+    }))
+    .filter((s) => s.items.length > 0);
 
   // Auto-expand menus if a sub-item is active
   useEffect(() => {

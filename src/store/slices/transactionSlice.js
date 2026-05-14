@@ -4,12 +4,14 @@ import api from "../../services/api";
 const initialState = {
   transactions: [],
   transaction: null,
+  stats: { settled: 0, pending: 0, refunds: 0, failed: 0, count: 0 },
   loading: false,
+  saving: false,
   error: null,
   message: null,
   pagination: {
     page: 1,
-    limit: 10,
+    limit: 20,
     total: 0,
     totalPages: 0,
   },
@@ -40,6 +42,51 @@ export const getTransaction = createAsyncThunk(
     } catch (error) {
       return rejectWithValue(
         error.response?.data?.message || "Failed to fetch transaction.",
+      );
+    }
+  },
+);
+
+// Stats
+export const getTransactionStats = createAsyncThunk(
+  "transactions/stats",
+  async (params = {}, { rejectWithValue }) => {
+    try {
+      const response = await api.get("/transactions/stats", { params });
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to fetch stats.",
+      );
+    }
+  },
+);
+
+// Create transaction
+export const createTransaction = createAsyncThunk(
+  "transactions/create",
+  async (data, { rejectWithValue }) => {
+    try {
+      const response = await api.post("/transactions", data);
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to create transaction.",
+      );
+    }
+  },
+);
+
+// Delete transaction
+export const deleteTransaction = createAsyncThunk(
+  "transactions/delete",
+  async (id, { rejectWithValue }) => {
+    try {
+      const response = await api.delete(`/transactions/${id}`);
+      return { ...response.data, id };
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to delete transaction.",
       );
     }
   },
@@ -109,11 +156,11 @@ const transactionSlice = createSlice({
       })
       // Update Status
       .addCase(updateTransactionStatus.pending, (state) => {
-        state.loading = true;
+        state.saving = true;
         state.error = null;
       })
       .addCase(updateTransactionStatus.fulfilled, (state, action) => {
-        state.loading = false;
+        state.saving = false;
         const index = state.transactions.findIndex(
           (t) => t._id === action.payload.data._id,
         );
@@ -124,7 +171,36 @@ const transactionSlice = createSlice({
           action.payload.message || "Transaction status updated successfully.";
       })
       .addCase(updateTransactionStatus.rejected, (state, action) => {
-        state.loading = false;
+        state.saving = false;
+        state.error = action.payload;
+      })
+      // Stats
+      .addCase(getTransactionStats.fulfilled, (state, action) => {
+        state.stats = action.payload.data || state.stats;
+      })
+      // Create
+      .addCase(createTransaction.pending, (state) => {
+        state.saving = true;
+      })
+      .addCase(createTransaction.fulfilled, (state, action) => {
+        state.saving = false;
+        if (action.payload.data) {
+          state.transactions.unshift(action.payload.data);
+        }
+        state.message = action.payload.message || "Transaction recorded.";
+      })
+      .addCase(createTransaction.rejected, (state, action) => {
+        state.saving = false;
+        state.error = action.payload;
+      })
+      // Delete
+      .addCase(deleteTransaction.fulfilled, (state, action) => {
+        state.transactions = state.transactions.filter(
+          (t) => t._id !== action.payload.id,
+        );
+        state.message = action.payload.message || "Transaction deleted.";
+      })
+      .addCase(deleteTransaction.rejected, (state, action) => {
         state.error = action.payload;
       });
   },

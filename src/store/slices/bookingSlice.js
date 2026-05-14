@@ -63,6 +63,21 @@ export const updateBookingStatus = createAsyncThunk(
   },
 );
 
+// Allocate (or change) the vendor for a booking
+export const allocateVendor = createAsyncThunk(
+  "bookings/allocateVendor",
+  async ({ id, vendorId }, { rejectWithValue }) => {
+    try {
+      const response = await api.patch(`/bookings/${id}/vendor`, { vendorId });
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to allocate vendor.",
+      );
+    }
+  },
+);
+
 // Delete booking
 export const deleteBooking = createAsyncThunk(
   "bookings/delete",
@@ -141,6 +156,24 @@ const bookingSlice = createSlice({
       })
       .addCase(updateBookingStatus.rejected, (state, action) => {
         state.loading = false;
+        state.error = action.payload;
+      })
+      // Allocate Vendor
+      .addCase(allocateVendor.pending, (state) => {
+        state.error = null;
+      })
+      .addCase(allocateVendor.fulfilled, (state, action) => {
+        const updated = action.payload.data;
+        const index = state.bookings.findIndex((b) => b._id === updated._id);
+        if (index !== -1) {
+          state.bookings[index] = updated;
+        }
+        if (state.booking && state.booking._id === updated._id) {
+          state.booking = updated;
+        }
+        state.message = action.payload.message || "Vendor allocated.";
+      })
+      .addCase(allocateVendor.rejected, (state, action) => {
         state.error = action.payload;
       })
       // Delete

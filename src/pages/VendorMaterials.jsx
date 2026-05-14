@@ -319,8 +319,22 @@ export default function VendorMaterials() {
                       )}
                     </div>
                     <div>
-                      <div className="font-medium text-gray-900">
+                      <div className="flex items-center gap-2 font-medium text-gray-900">
                         {vm.material?.name}
+                        {vm.addedByVendor && (
+                          <span
+                            className={`text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full ${
+                              vm.verificationStatus === "approved"
+                                ? "bg-green-100 text-green-700"
+                                : vm.verificationStatus === "rejected"
+                                ? "bg-red-100 text-red-700"
+                                : "bg-amber-100 text-amber-700"
+                            }`}
+                            title={`Added by vendor • ${vm.verificationStatus || "pending"}`}
+                          >
+                            Vendor • {vm.verificationStatus || "pending"}
+                          </span>
+                        )}
                       </div>
                       <div className="text-xs text-gray-500">
                         {vm.material?.unit}

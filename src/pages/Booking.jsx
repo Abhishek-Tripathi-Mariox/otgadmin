@@ -19,9 +19,11 @@ import toast from "react-hot-toast";
 import {
   getBookings,
   updateBookingStatus,
+  allocateVendor,
   clearMessage,
   clearError,
 } from "../store/slices/bookingSlice";
+import { getVendors } from "../store/slices/vendorSlice";
 
 const STATUS_OPTIONS = [
   {
@@ -250,9 +252,12 @@ export default function Bookings() {
   const { bookings: apiBookings, loading, error, message, pagination } = useSelector(
     (state) => state.bookings,
   );
+  const { vendors } = useSelector((state) => state.vendors);
 
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState(null);
+  const [vendorPick, setVendorPick] = useState("");
+  const [allocating, setAllocating] = useState(false);
   const [filters, setFilters] = useState({
     search: "",
     status: "",
@@ -260,6 +265,37 @@ export default function Bookings() {
     fromDate: "",
     toDate: "",
   });
+
+  // Load vendors once for the allocation picker
+  useEffect(() => {
+    dispatch(getVendors({ page: 1, limit: 200 }));
+  }, [dispatch]);
+
+  // Sync local vendor pick with whichever booking is open
+  useEffect(() => {
+    setVendorPick(selectedBooking?.vendor?._id || "");
+  }, [selectedBooking?._id]);
+
+  const handleAllocateVendor = async () => {
+    if (!selectedBooking?._id) {
+      toast.error("Open a saved booking to allocate a vendor.");
+      return;
+    }
+    try {
+      setAllocating(true);
+      const res = await dispatch(
+        allocateVendor({
+          id: selectedBooking._id,
+          vendorId: vendorPick || null,
+        }),
+      ).unwrap();
+      if (res?.data) setSelectedBooking(res.data);
+    } catch {
+      // toast handled via redux error
+    } finally {
+      setAllocating(false);
+    }
+  };
 
   // Use demo data when no real bookings exist
   const isDemo = !loading && apiBookings.length === 0;
@@ -745,7 +781,7 @@ export default function Bookings() {
                     <Store size={16} /> Vendor
                   </h3>
                   <p className="text-sm font-medium">
-                    {selectedBooking.vendor?.name || "-"}
+                    {selectedBooking.vendor?.name || "Not allocated"}
                   </p>
                   {selectedBooking.vendor?.mobile && (
                     <p className="text-xs text-gray-500 mt-1">
@@ -756,6 +792,40 @@ export default function Bookings() {
                     <p className="text-xs text-gray-500 mt-0.5">
                       ✉️ {selectedBooking.vendor.email}
                     </p>
+                  )}
+
+                  {/* Allocate / change vendor — only on real bookings */}
+                  {selectedBooking._id && !isDemo && (
+                    <div className="mt-3 pt-3 border-t border-gray-200">
+                      <label className="block text-xs text-gray-500 mb-1">
+                        {selectedBooking.vendor ? "Change vendor" : "Allocate vendor"}
+                      </label>
+                      <div className="flex gap-2">
+                        <select
+                          className="input-field flex-1 text-sm"
+                          value={vendorPick}
+                          onChange={(e) => setVendorPick(e.target.value)}
+                        >
+                          <option value="">-- Unassigned --</option>
+                          {vendors.map((v) => (
+                            <option key={v._id} value={v._id}>
+                              {v.name}
+                              {v.business?.city ? ` · ${v.business.city}` : ""}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          onClick={handleAllocateVendor}
+                          disabled={
+                            allocating ||
+                            vendorPick === (selectedBooking.vendor?._id || "")
+                          }
+                          className="btn-primary text-sm"
+                        >
+                          {allocating ? "Saving..." : "Save"}
+                        </button>
+                      </div>
+                    </div>
                   )}
                 </div>
 

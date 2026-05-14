@@ -27,18 +27,19 @@ import {
   deleteStaff,
   toggleStaffStatus,
   resetStaffPassword,
+  getStaffMeta,
   clearMessage,
   clearError,
 } from "../store/slices/staffSlice";
 
-const ROLES = ["Super Admin", "Operations Manager", "Sales Executive", "Support Agent", "Finance Manager", "Logistics Head"];
-const DEPARTMENTS = ["Management", "Operations", "Sales", "Support", "Finance"];
+const DEPARTMENTS = ["Management", "Operations", "Sales", "Support", "Finance", "Logistics"];
 
-const emptyForm = { name: "", email: "", mobile: "", role: "", department: "", status: "active" };
+const emptyForm = { name: "", email: "", mobile: "", roleId: "", department: "", status: "active" };
 
 export default function Staff() {
   const dispatch = useDispatch();
-  const { staffList, stats, loading, error, message, pagination } = useSelector((state) => state.staff);
+  const { staffList, stats, loading, error, message, pagination, meta } = useSelector((state) => state.staff);
+  const ROLES = meta?.roles || [];
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
@@ -60,6 +61,11 @@ export default function Staff() {
     dispatch(getStaffList(params));
   }, [dispatch, filters]);
 
+  // Load roles & departments dropdown data once
+  useEffect(() => {
+    dispatch(getStaffMeta());
+  }, [dispatch]);
+
   // Toast messages
   useEffect(() => {
     if (message) { toast.success(message); dispatch(clearMessage()); }
@@ -74,7 +80,14 @@ export default function Staff() {
 
   const openEditModal = (staff) => {
     setEditingStaff(staff);
-    setFormData({ name: staff.name, email: staff.email, mobile: staff.mobile, role: staff.role, department: staff.department, status: staff.status });
+    setFormData({
+      name: staff.name,
+      email: staff.email,
+      mobile: staff.mobile,
+      roleId: staff.roleId?._id || staff.roleId || "",
+      department: staff.department,
+      status: staff.status,
+    });
     setIsModalOpen(true);
   };
 
@@ -86,7 +99,7 @@ export default function Staff() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.name || !formData.email || !formData.mobile || !formData.role || !formData.department) {
+    if (!formData.name || !formData.email || !formData.mobile || !formData.roleId || !formData.department) {
       toast.error("Please fill all required fields");
       return;
     }
@@ -167,7 +180,7 @@ export default function Staff() {
             </select>
             <select value={filters.role} onChange={(e) => setFilters({ ...filters, role: e.target.value })} className="input-field">
               <option value="">All Roles</option>
-              {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
+              {ROLES.map((r) => <option key={r._id || r} value={r.name || r}>{r.name || r}</option>)}
             </select>
             <select value={filters.department} onChange={(e) => setFilters({ ...filters, department: e.target.value })} className="input-field">
               <option value="">All Departments</option>
@@ -292,9 +305,9 @@ export default function Staff() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Role *</label>
-                  <select value={formData.role} onChange={(e) => setFormData({ ...formData, role: e.target.value })} className="input-field" required>
+                  <select value={formData.roleId} onChange={(e) => setFormData({ ...formData, roleId: e.target.value })} className="input-field" required>
                     <option value="">Select Role</option>
-                    {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
+                    {ROLES.map((r) => <option key={r._id} value={r._id}>{r.name}</option>)}
                   </select>
                 </div>
                 <div>
