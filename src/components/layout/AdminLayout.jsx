@@ -13,6 +13,7 @@ import {
   FolderOpen,
   Grid3X3,
   Box,
+  Tag,
   Shield,
   UserCog,
   KeyRound,
@@ -30,11 +31,13 @@ import {
   Ticket,
   LifeBuoy,
   Headphones,
+  Star,
+  HelpCircle,
 } from "lucide-react";
 import { Link, useLocation, Outlet, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { useDispatch } from "react-redux";
-import { logout, getProfile } from "../../store/slices/authSlice";
+import { logout } from "../../store/slices/authSlice";
 import usePermission from "../../hooks/usePermission";
 
 export default function AdminLayout({ children }) {
@@ -45,13 +48,10 @@ export default function AdminLayout({ children }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [openMenus, setOpenMenus] = useState({});
 
-  // Refresh profile on mount so permissions stay current after role edits
-  useEffect(() => {
-    dispatch(getProfile());
-  }, [dispatch]);
-
+  // Accordion behaviour: opening one expandable group collapses the others,
+  // so the sidebar stays compact. Clicking an open group closes it.
   const toggleMenu = (key) => {
-    setOpenMenus((prev) => ({ ...prev, [key]: !prev[key] }));
+    setOpenMenus((prev) => (prev[key] ? {} : { [key]: true }));
   };
 
   // Sidebar sections — every item declares the permission module it requires
@@ -74,8 +74,10 @@ export default function AdminLayout({ children }) {
           key: "material",
           subItems: [
             { icon: FolderOpen, label: "Categories", path: "/categories", perm: "categories" },
+            { icon: Tag, label: "Brands", path: "/brands", perm: "categories" },
             { icon: Grid3X3, label: "Sub Categories", path: "/sub-categories", perm: "subCategories" },
             { icon: Box, label: "Materials", path: "/materials", perm: "materials" },
+            { icon: Star, label: "Reviews", path: "/reviews", perm: "materials" },
           ],
         },
       ],
@@ -125,6 +127,7 @@ export default function AdminLayout({ children }) {
           subItems: [
             { icon: FileText, label: "Overview", path: "/cms", perm: "cms" },
             { icon: Image, label: "Homepage Banners", path: "/cms/home-banners", perm: "cms" },
+            { icon: HelpCircle, label: "FAQs", path: "/faqs", perm: "cms" },
           ],
         },
         { icon: Ticket, label: "Offers & Coupons", path: "/offers", perm: "offers" },
@@ -188,7 +191,8 @@ export default function AdminLayout({ children }) {
             (sub) => location.pathname === sub.path,
           );
           if (isSubActive) {
-            setOpenMenus((prev) => ({ ...prev, [item.key]: true }));
+            // Keep accordion invariant: only the active group stays open.
+            setOpenMenus({ [item.key]: true });
           }
         }
       });

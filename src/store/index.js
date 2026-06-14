@@ -1,6 +1,7 @@
 import { configureStore } from "@reduxjs/toolkit";
 import authReducer from "./slices/authSlice";
 import categoryReducer from "./slices/categorySlice";
+import brandReducer from "./slices/brandSlice";
 import subCategoryReducer from "./slices/subCategorySlice";
 import materialReducer from "./slices/materialSlice";
 import vendorReducer from "./slices/vendorSlice";
@@ -22,6 +23,7 @@ export const store = configureStore({
   reducer: {
     auth: authReducer,
     categories: categoryReducer,
+    brands: brandReducer,
     subCategories: subCategoryReducer,
     materials: materialReducer,
     vendors: vendorReducer,

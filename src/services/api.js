@@ -24,17 +24,26 @@ api.interceptors.request.use(
   },
 );
 
+let isHandling401 = false;
+
 // Response interceptor to handle errors
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    // Only redirect to login for 401 on protected routes, not on login page itself
     if (error.response?.status === 401) {
-      const isLoginRequest = error.config?.url?.includes("/auth/login");
-      if (!isLoginRequest) {
+      const url = error.config?.url || "";
+      const isAuthFlow =
+        url.includes("/auth/login") ||
+        url.includes("/auth/forgot-password") ||
+        url.includes("/auth/reset-password");
+
+      if (!isAuthFlow && !isHandling401) {
+        isHandling401 = true;
         localStorage.removeItem("token");
         localStorage.removeItem("admin");
-        window.location.href = "/login";
+        if (!window.location.pathname.startsWith("/login")) {
+          window.location.replace("/login");
+        }
       }
     }
     return Promise.reject(error);

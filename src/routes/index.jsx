@@ -13,6 +13,7 @@ import NewSellerRequests from "../pages/NewSellerRequests";
 import Drivers from "../pages/Drivers";
 import VendorMaterials from "../pages/VendorMaterials";
 import Categories from "../pages/Categories";
+import Brands from "../pages/Brands";
 import SubCategories from "../pages/SubCategories";
 import Materials from "../pages/Materials";
 import Bookings from "../pages/Booking";
@@ -28,6 +29,8 @@ import Quotations from "../pages/Quotations";
 import Offers from "../pages/Offers";
 import HelpSettings from "../pages/HelpSettings";
 import SupportTickets from "../pages/SupportTickets";
+import Reviews from "../pages/Reviews";
+import Faqs from "../pages/Faqs";
 
 // Layout & Route Guards
 import AdminLayout from "../components/layout/AdminLayout";
@@ -77,8 +80,10 @@ const AppRoutes = () => {
             element={<PermissionRoute module="vendors"><VendorMaterials /></PermissionRoute>}
           />
           <Route path="/categories" element={<PermissionRoute module="categories"><Categories /></PermissionRoute>} />
+          <Route path="/brands" element={<PermissionRoute module="categories"><Brands /></PermissionRoute>} />
           <Route path="/sub-categories" element={<PermissionRoute module="subCategories"><SubCategories /></PermissionRoute>} />
           <Route path="/materials" element={<PermissionRoute module="materials"><Materials /></PermissionRoute>} />
+          <Route path="/reviews" element={<PermissionRoute module="materials"><Reviews /></PermissionRoute>} />
           <Route path="/bookings" element={<PermissionRoute module="bookings"><Bookings /></PermissionRoute>} />
           <Route path="/quotations" element={<PermissionRoute module="bookings"><Quotations /></PermissionRoute>} />
           <Route path="/transactions" element={<PermissionRoute module="transactions"><Transactions /></PermissionRoute>} />
@@ -92,6 +97,7 @@ const AppRoutes = () => {
           <Route path="/offers" element={<PermissionRoute module="offers"><Offers /></PermissionRoute>} />
           <Route path="/help/settings" element={<PermissionRoute module="cms"><HelpSettings /></PermissionRoute>} />
           <Route path="/help/tickets" element={<PermissionRoute module="cms"><SupportTickets /></PermissionRoute>} />
+          <Route path="/faqs" element={<PermissionRoute module="cms"><Faqs /></PermissionRoute>} />
         </Route>
       </Route>
 
