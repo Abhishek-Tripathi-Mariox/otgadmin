@@ -68,6 +68,24 @@ export const respondToQuotation = createAsyncThunk(
   },
 );
 
+export const uploadQuotationPdf = createAsyncThunk(
+  "quotations/uploadPdf",
+  async ({ id, file }, { rejectWithValue }) => {
+    try {
+      const formData = new FormData();
+      formData.append("pdf", file);
+      const response = await api.patch(`/quotations/${id}/pdf`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to upload PDF.",
+      );
+    }
+  },
+);
+
 export const updateQuotationStatus = createAsyncThunk(
   "quotations/updateStatus",
   async ({ id, status }, { rejectWithValue }) => {
@@ -162,6 +180,24 @@ const quotationSlice = createSlice({
         s.message = a.payload.message || "Quotation sent.";
       })
       .addCase(respondToQuotation.rejected, (s, a) => {
+        s.saving = false;
+        s.error = a.payload;
+      })
+      .addCase(uploadQuotationPdf.pending, (s) => {
+        s.saving = true;
+      })
+      .addCase(uploadQuotationPdf.fulfilled, (s, a) => {
+        s.saving = false;
+        const updated = a.payload.data;
+        s.quotations = s.quotations.map((q) =>
+          q._id === updated._id ? { ...q, ...updated } : q,
+        );
+        if (s.quotation && s.quotation._id === updated._id) {
+          s.quotation = { ...s.quotation, ...updated };
+        }
+        s.message = a.payload.message || "Quotation PDF uploaded.";
+      })
+      .addCase(uploadQuotationPdf.rejected, (s, a) => {
         s.saving = false;
         s.error = a.payload;
       })

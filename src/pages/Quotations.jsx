@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import usePolling from "../hooks/usePolling";
 import {
   FileText,
   Search,
@@ -14,12 +15,15 @@ import {
   Hourglass,
   X,
   IndianRupee,
+  Upload,
+  FileDown,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import {
   getQuotations,
   getQuotationCounts,
   respondToQuotation,
+  uploadQuotationPdf,
   updateQuotationStatus,
   assignVendorToQuotation,
   deleteQuotation,
@@ -77,6 +81,7 @@ export default function Quotations() {
   const [savingResponse, setSavingResponse] = useState(false);
   const [vendorPick, setVendorPick] = useState("");
   const [assigningVendor, setAssigningVendor] = useState(false);
+  const [uploadingPdf, setUploadingPdf] = useState(false);
 
   // Load vendors once for the assignment picker
   useEffect(() => {
@@ -106,15 +111,46 @@ export default function Quotations() {
     }
   };
 
+  const handleUploadPdf = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = ""; // allow re-selecting the same file
+    if (!file || !detail?._id) return;
+    if (file.type !== "application/pdf") {
+      toast.error("Please select a PDF file");
+      return;
+    }
+    try {
+      setUploadingPdf(true);
+      const res = await dispatch(
+        uploadQuotationPdf({ id: detail._id, file }),
+      ).unwrap();
+      if (res?.data) setDetail(res.data);
+    } catch {
+      // toast via redux error
+    } finally {
+      setUploadingPdf(false);
+    }
+  };
+
   useEffect(() => {
     dispatch(getQuotationCounts());
   }, [dispatch]);
 
-  useEffect(() => {
+  const fetchQuotations = useCallback(() => {
     const params = { status: statusTab, page: 1, limit: 50 };
     if (search) params.search = search;
     dispatch(getQuotations(params));
   }, [dispatch, statusTab, search]);
+
+  useEffect(() => {
+    fetchQuotations();
+  }, [fetchQuotations]);
+
+  // Refresh list + counts periodically so new requests appear in near real time.
+  usePolling(() => {
+    fetchQuotations();
+    dispatch(getQuotationCounts());
+  });
 
   useEffect(() => {
     if (message) {
@@ -535,6 +571,46 @@ export default function Quotations() {
                   label="Submitted"
                   value={new Date(detail.createdAt).toLocaleString()}
                 />
+              </Section>
+
+              {/* Quotation PDF */}
+              <Section title="Quotation Document">
+                {detail.quotationPdf?.url ? (
+                  <a
+                    href={detail.quotationPdf.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-2 text-sm text-blue-600 hover:underline"
+                  >
+                    <FileDown size={16} />
+                    {detail.quotationPdf.name || "View / Download PDF"}
+                  </a>
+                ) : (
+                  <p className="text-sm text-gray-500">
+                    No PDF uploaded for this quotation yet.
+                  </p>
+                )}
+
+                <div className="mt-3 pt-3 border-t border-gray-200">
+                  <label className="inline-flex items-center gap-2 px-3 py-2 text-sm bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 cursor-pointer">
+                    <Upload size={16} />
+                    {uploadingPdf
+                      ? "Uploading..."
+                      : detail.quotationPdf?.url
+                        ? "Replace PDF"
+                        : "Upload PDF"}
+                    <input
+                      type="file"
+                      accept="application/pdf"
+                      className="hidden"
+                      disabled={uploadingPdf}
+                      onChange={handleUploadPdf}
+                    />
+                  </label>
+                  <p className="text-xs text-gray-400 mt-2">
+                    Attach a quotation document (PDF, max 10MB).
+                  </p>
+                </div>
               </Section>
 
               {/* Assigned Vendor */}

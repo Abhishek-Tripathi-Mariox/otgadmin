@@ -18,6 +18,7 @@ import quotationReducer from "./slices/quotationSlice";
 import offerReducer from "./slices/offerSlice";
 import helpSettingsReducer from "./slices/helpSettingsSlice";
 import supportTicketReducer from "./slices/supportTicketSlice";
+import appSettingsReducer from "./slices/appSettingsSlice";
 
 export const store = configureStore({
   reducer: {
@@ -40,6 +41,7 @@ export const store = configureStore({
     offers: offerReducer,
     helpSettings: helpSettingsReducer,
     supportTickets: supportTicketReducer,
+    appSettings: appSettingsReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

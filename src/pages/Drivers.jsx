@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import usePolling from "../hooks/usePolling";
 import {
   Edit2,
   Trash2,
@@ -91,7 +92,7 @@ export default function Drivers() {
     toDate: "",
   });
 
-  useEffect(() => {
+  const fetchDrivers = useCallback(() => {
     const params = { page: 1, limit: 20 };
     if (filters.search) params.search = filters.search;
     if (filters.approvalStatus) params.approvalStatus = filters.approvalStatus;
@@ -102,6 +103,14 @@ export default function Drivers() {
     if (filters.toDate) params.toDate = filters.toDate;
     dispatch(getDrivers(params));
   }, [dispatch, filters]);
+
+  useEffect(() => {
+    fetchDrivers();
+  }, [fetchDrivers]);
+
+  // Keep the list fresh so newly registered drivers appear (at the top) in
+  // near real time without a manual reload.
+  usePolling(fetchDrivers);
 
   useEffect(() => {
     if (message) {

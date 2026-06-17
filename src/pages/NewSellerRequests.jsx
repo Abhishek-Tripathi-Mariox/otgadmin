@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import usePolling from "../hooks/usePolling";
 import {
   UserPlus,
   Search,
@@ -54,15 +55,19 @@ export default function NewSellerRequests() {
   const [editForm, setEditForm] = useState(null);
   const [savingEdit, setSavingEdit] = useState(false);
 
-  useEffect(() => {
-    dispatch(getSellerRequestCounts());
-  }, [dispatch]);
-
-  useEffect(() => {
+  const refresh = useCallback(() => {
     const params = { status: statusTab, page: 1, limit: 50 };
     if (search) params.search = search;
     dispatch(getSellerRequests(params));
+    dispatch(getSellerRequestCounts());
   }, [dispatch, statusTab, search]);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  // Real-time: keep the list and badge counts fresh without a manual reload.
+  usePolling(refresh);
 
   useEffect(() => {
     if (message) {

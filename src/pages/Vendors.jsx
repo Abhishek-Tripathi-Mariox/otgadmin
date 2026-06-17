@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
+import usePolling from "../hooks/usePolling";
 import {
   Plus,
   Edit2,
@@ -97,7 +98,7 @@ export default function Vendors() {
   }, [dispatch]);
 
   // Fetch vendors with filters
-  useEffect(() => {
+  const fetchVendors = useCallback(() => {
     const params = { page: 1, limit: 20 };
     if (filters.search) params.search = filters.search;
     if (filters.status) params.status = filters.status;
@@ -106,6 +107,13 @@ export default function Vendors() {
     if (filters.toDate) params.toDate = filters.toDate;
     dispatch(getVendors(params));
   }, [dispatch, filters]);
+
+  useEffect(() => {
+    fetchVendors();
+  }, [fetchVendors]);
+
+  // Refresh the list periodically so changes show in near real time.
+  usePolling(fetchVendors);
 
   // Handle success/error messages
   useEffect(() => {

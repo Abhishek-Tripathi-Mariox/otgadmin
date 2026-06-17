@@ -27,6 +27,7 @@ import {
   Truck,
   UserPlus,
   Image,
+  Megaphone,
   ClipboardList,
   Ticket,
   LifeBuoy,
@@ -127,6 +128,7 @@ export default function AdminLayout({ children }) {
           subItems: [
             { icon: FileText, label: "Overview", path: "/cms", perm: "cms" },
             { icon: Image, label: "Homepage Banners", path: "/cms/home-banners", perm: "cms" },
+            { icon: Megaphone, label: "Home Content", path: "/cms/home-content", perm: "cms" },
             { icon: HelpCircle, label: "FAQs", path: "/faqs", perm: "cms" },
           ],
         },

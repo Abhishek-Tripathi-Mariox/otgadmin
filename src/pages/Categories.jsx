@@ -33,7 +33,11 @@ export default function Categories() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDeletedModalOpen, setIsDeletedModalOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
-  const [formData, setFormData] = useState({ name: "", status: "active" });
+  const [formData, setFormData] = useState({
+    name: "",
+    status: "active",
+    order: 0,
+  });
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const fileInputRef = useRef(null);
@@ -61,6 +65,7 @@ export default function Categories() {
     const formDataToSend = new FormData();
     formDataToSend.append("name", formData.name);
     formDataToSend.append("status", formData.status);
+    formDataToSend.append("order", String(formData.order ?? 0));
 
     if (imageFile) {
       formDataToSend.append("image", imageFile);
@@ -89,11 +94,12 @@ export default function Categories() {
       setFormData({
         name: category.name,
         status: category.status,
+        order: category.order ?? 0,
       });
       setImagePreview(category.image);
     } else {
       setEditingId(null);
-      setFormData({ name: "", status: "active" });
+      setFormData({ name: "", status: "active", order: 0 });
       setImagePreview(null);
     }
     setImageFile(null);
@@ -103,7 +109,7 @@ export default function Categories() {
   const closeModal = () => {
     setIsModalOpen(false);
     setEditingId(null);
-    setFormData({ name: "", status: "active" });
+    setFormData({ name: "", status: "active", order: 0 });
     setImageFile(null);
     setImagePreview(null);
   };
@@ -343,6 +349,29 @@ export default function Categories() {
                   <option value="active">Active</option>
                   <option value="inactive">Inactive</option>
                 </select>
+              </div>
+
+              {/* Display Order */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Display Order
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  className="input-field"
+                  placeholder="0"
+                  value={formData.order}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      order: e.target.value === "" ? "" : Number(e.target.value),
+                    })
+                  }
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Lower number shows first on the app home screen (0 = first).
+                </p>
               </div>
 
               <div className="flex justify-end gap-3 pt-4">

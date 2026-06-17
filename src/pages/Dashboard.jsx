@@ -16,6 +16,7 @@ import {
 
 import Card from "../components/ui/Card";
 import api from "../services/api";
+import usePolling from "../hooks/usePolling";
 
 export default function Dashboard() {
   const [dashboardStats, setDashboardStats] = useState(null);
@@ -34,6 +35,13 @@ export default function Dashboard() {
   useEffect(() => {
     fetchRevenueTrend();
   }, [chartFilter]);
+
+  // Keep dashboard KPIs (pending/in-transit/completed orders, revenue) in sync
+  // with the backend without a manual reload.
+  usePolling(() => {
+    fetchDashboardData();
+    fetchRevenueTrend();
+  });
 
   const fetchDashboardData = async () => {
     try {

@@ -23,6 +23,7 @@ import Roles from "../pages/Roles";
 import CMS from "../pages/CMS";
 import CmsPageEditor from "../pages/CmsPageEditor";
 import HomeBanners from "../pages/HomeBanners";
+import HomeContent from "../pages/HomeContent";
 import Configuration from "../pages/Configuration";
 import Notifications from "../pages/Notifications";
 import Quotations from "../pages/Quotations";
@@ -91,6 +92,7 @@ const AppRoutes = () => {
           <Route path="/roles" element={<PermissionRoute module="roles"><Roles /></PermissionRoute>} />
           <Route path="/cms" element={<PermissionRoute module="cms"><CMS /></PermissionRoute>} />
           <Route path="/cms/home-banners" element={<PermissionRoute module="cms"><HomeBanners /></PermissionRoute>} />
+          <Route path="/cms/home-content" element={<PermissionRoute module="cms"><HomeContent /></PermissionRoute>} />
           <Route path="/cms/edit/:slug" element={<PermissionRoute module="cms"><CmsPageEditor /></PermissionRoute>} />
           <Route path="/config/:service" element={<Configuration />} />
           <Route path="/notifications" element={<PermissionRoute module="notifications"><Notifications /></PermissionRoute>} />

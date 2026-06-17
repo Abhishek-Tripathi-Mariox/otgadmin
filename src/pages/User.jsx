@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import usePolling from "../hooks/usePolling";
 import {
   Edit2,
   Trash2,
@@ -81,7 +82,7 @@ export default function Users() {
   });
 
   // Fetch users with filters
-  useEffect(() => {
+  const fetchUsers = useCallback(() => {
     const params = { page: 1, limit: 20 };
     if (filters.search) params.search = filters.search;
     if (filters.status) params.status = filters.status;
@@ -92,6 +93,13 @@ export default function Users() {
     if (filters.toDate) params.toDate = filters.toDate;
     dispatch(getUsers(params));
   }, [dispatch, filters]);
+
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
+
+  // Refresh the list periodically so changes show in near real time.
+  usePolling(fetchUsers);
 
   // Handle success/error messages
   useEffect(() => {

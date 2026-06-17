@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import usePolling from "../hooks/usePolling";
 import {
   Search,
   Filter,
@@ -14,6 +15,7 @@ import {
   Store,
   Calendar,
   CreditCard,
+  Clock,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import {
@@ -32,9 +34,29 @@ const STATUS_OPTIONS = [
     color: "bg-yellow-100 text-yellow-700",
   },
   {
-    value: "confirmed",
-    label: "Confirmed",
+    value: "accepted",
+    label: "Accepted",
     color: "bg-blue-100 text-blue-700",
+  },
+  {
+    value: "qc_pending",
+    label: "QC Pending",
+    color: "bg-amber-100 text-amber-700",
+  },
+  {
+    value: "qc_approved",
+    label: "QC Approved",
+    color: "bg-teal-100 text-teal-700",
+  },
+  {
+    value: "packed",
+    label: "Packed",
+    color: "bg-indigo-100 text-indigo-700",
+  },
+  {
+    value: "dispatched",
+    label: "Dispatched",
+    color: "bg-purple-100 text-purple-700",
   },
   {
     value: "in_transit",
@@ -48,6 +70,11 @@ const STATUS_OPTIONS = [
   },
   { value: "cancelled", label: "Cancelled", color: "bg-red-100 text-red-700" },
 ];
+
+// Legacy/alias statuses mapped onto the canonical ones above.
+const STATUS_ALIASES = {
+  confirmed: "accepted",
+};
 
 const PAYMENT_OPTIONS = [
   {
@@ -67,185 +94,24 @@ const PAYMENT_OPTIONS = [
   },
 ];
 
-const getStatusConfig = (status) =>
-  STATUS_OPTIONS.find((s) => s.value === status) || STATUS_OPTIONS[0];
+const getStatusConfig = (status) => {
+  const canonical = STATUS_ALIASES[status] || status;
+  const found = STATUS_OPTIONS.find((s) => s.value === canonical);
+  if (found) return found;
+  // Unknown status: show a readable label instead of silently defaulting.
+  return {
+    value: status,
+    label: status
+      ? String(status)
+          .replace(/_/g, " ")
+          .replace(/\b\w/g, (c) => c.toUpperCase())
+      : "Unknown",
+    color: "bg-gray-100 text-gray-700",
+  };
+};
 
 const getPaymentConfig = (status) =>
   PAYMENT_OPTIONS.find((s) => s.value === status) || PAYMENT_OPTIONS[0];
-
-// Demo data for client preview
-const DEMO_BOOKINGS = [
-  {
-    _id: "demo1",
-    bookingId: "OTG-2026-0001",
-    site: "Prestige Lakeside Habitat, Whitefield",
-    createdAt: "2026-04-10T09:30:00Z",
-    updatedAt: "2026-04-11T14:00:00Z",
-    material: { name: "Bosch GBM 350 Rotary Drill", unit: "Pieces", images: [] },
-    quantity: 5,
-    unit: "Pieces",
-    price: 3200,
-    totalAmount: 16000,
-    vendor: { name: "Sri Balaji Hardware", mobile: "9876543210", email: "balaji@hardware.com" },
-    user: { name: "Rajesh Kumar", mobile: "9988776655", email: "rajesh@build.com" },
-    status: "confirmed",
-    paymentStatus: "partial",
-    notes: "Deliver before 10 AM at gate 2",
-  },
-  {
-    _id: "demo2",
-    bookingId: "OTG-2026-0002",
-    site: "Brigade Gateway, Rajajinagar",
-    createdAt: "2026-04-09T11:15:00Z",
-    updatedAt: "2026-04-10T16:45:00Z",
-    material: { name: "UltraTech OPC 53 Grade Cement", unit: "Bags", images: [] },
-    quantity: 200,
-    unit: "Bags",
-    price: 380,
-    totalAmount: 76000,
-    vendor: { name: "Ambika Cement Depot", mobile: "9123456780", email: "ambika@cement.com" },
-    user: { name: "Suresh Patel", mobile: "9871234560", email: "suresh@construct.in" },
-    status: "in_transit",
-    paymentStatus: "pending",
-    notes: "Requires crane for unloading",
-  },
-  {
-    _id: "demo3",
-    bookingId: "OTG-2026-0003",
-    site: "Sobha Dream Acres, Panathur",
-    createdAt: "2026-04-08T08:00:00Z",
-    updatedAt: "2026-04-09T12:30:00Z",
-    material: { name: "Tata Tiscon 12mm TMT Bar", unit: "Tonnes", images: [] },
-    quantity: 3,
-    unit: "Tonnes",
-    price: 52000,
-    totalAmount: 156000,
-    vendor: { name: "National Steel Traders", mobile: "9001234567", email: "national@steel.in" },
-    user: { name: "Anita Sharma", mobile: "9345678901", email: "anita@infra.com" },
-    status: "delivered",
-    paymentStatus: "completed",
-    notes: "",
-  },
-  {
-    _id: "demo4",
-    bookingId: "OTG-2026-0004",
-    site: "Godrej Splendour, Bellandur",
-    createdAt: "2026-04-07T14:20:00Z",
-    updatedAt: "2026-04-07T14:20:00Z",
-    material: { name: "Asian Paints Primer 20L", unit: "Buckets", images: [] },
-    quantity: 30,
-    unit: "Buckets",
-    price: 1100,
-    totalAmount: 33000,
-    vendor: { name: "Gupta Paint House", mobile: "9567890123", email: "gupta@paints.com" },
-    user: { name: "Mohammed Irfan", mobile: "9654321098", email: "irfan@homes.in" },
-    status: "pending",
-    paymentStatus: "pending",
-    notes: "White primer only, no tinting",
-  },
-  {
-    _id: "demo5",
-    bookingId: "OTG-2026-0005",
-    site: "Mantri Serenity, Kanakapura Road",
-    createdAt: "2026-04-06T07:45:00Z",
-    updatedAt: "2026-04-08T09:15:00Z",
-    material: { name: "Bosch GWS 600 Angle Grinder", unit: "Pieces", images: [] },
-    quantity: 2,
-    unit: "Pieces",
-    price: 5600,
-    totalAmount: 11200,
-    vendor: { name: "Sri Balaji Hardware", mobile: "9876543210", email: "balaji@hardware.com" },
-    user: { name: "Priya Nair", mobile: "9012345678", email: "priya@buildcon.in" },
-    status: "cancelled",
-    paymentStatus: "pending",
-    notes: "Customer cancelled due to project delay",
-  },
-  {
-    _id: "demo6",
-    bookingId: "OTG-2026-0006",
-    site: "Puravankara Purva Zenium, Hosur Road",
-    createdAt: "2026-04-05T10:00:00Z",
-    updatedAt: "2026-04-06T11:30:00Z",
-    material: { name: "MS Binding Wire 18 Gauge", unit: "Kg", images: [] },
-    quantity: 500,
-    unit: "Kg",
-    price: 72,
-    totalAmount: 36000,
-    vendor: { name: "KR Wire & Metal", mobile: "9234567890", email: "kr@wire.in" },
-    user: { name: "Vikram Singh", mobile: "9876012345", email: "vikram@develope.com" },
-    status: "delivered",
-    paymentStatus: "completed",
-    notes: "",
-  },
-  {
-    _id: "demo7",
-    bookingId: "OTG-2026-0007",
-    site: "Embassy Springs, Devanahalli",
-    createdAt: "2026-04-11T13:00:00Z",
-    updatedAt: "2026-04-11T13:00:00Z",
-    material: { name: "Bosch GDC 141 Tile Cutter", unit: "Pieces", images: [] },
-    quantity: 4,
-    unit: "Pieces",
-    price: 8400,
-    totalAmount: 33600,
-    vendor: { name: "Tool Masters", mobile: "9345670000", email: "tool@masters.com" },
-    user: { name: "Deepak Joshi", mobile: "9111222333", email: "deepak@homez.in" },
-    status: "confirmed",
-    paymentStatus: "partial",
-    notes: "Include extra blades in delivery",
-  },
-  {
-    _id: "demo8",
-    bookingId: "OTG-2026-0008",
-    site: "Salarpuria Sattva, Electronic City",
-    createdAt: "2026-04-04T16:30:00Z",
-    updatedAt: "2026-04-07T10:00:00Z",
-    material: { name: "River Sand (M-Sand)", unit: "CFT", images: [] },
-    quantity: 1000,
-    unit: "CFT",
-    price: 45,
-    totalAmount: 45000,
-    vendor: { name: "Kaveri Sand Suppliers", mobile: "9400011122", email: "kaveri@sand.com" },
-    user: { name: "Lakshmi Devi", mobile: "9888990011", email: "lakshmi@construct.in" },
-    status: "in_transit",
-    paymentStatus: "partial",
-    notes: "Deliver in 2 trips — 500 CFT each",
-  },
-  {
-    _id: "demo9",
-    bookingId: "OTG-2026-0009",
-    site: "Total Environment, Jakkur",
-    createdAt: "2026-04-03T09:45:00Z",
-    updatedAt: "2026-04-05T18:00:00Z",
-    material: { name: "Stanley Demolition Hammer", unit: "Pieces", images: [] },
-    quantity: 1,
-    unit: "Pieces",
-    price: 24500,
-    totalAmount: 24500,
-    vendor: { name: "Tool Masters", mobile: "9345670000", email: "tool@masters.com" },
-    user: { name: "Arjun Reddy", mobile: "9222333444", email: "arjun@builders.in" },
-    status: "delivered",
-    paymentStatus: "completed",
-    notes: "",
-  },
-  {
-    _id: "demo10",
-    bookingId: "OTG-2026-0010",
-    site: "Prestige Falcon City, Kanakapura",
-    createdAt: "2026-04-12T06:00:00Z",
-    updatedAt: "2026-04-12T06:00:00Z",
-    material: { name: "ACC PPC Cement", unit: "Bags", images: [] },
-    quantity: 500,
-    unit: "Bags",
-    price: 360,
-    totalAmount: 180000,
-    vendor: { name: "Ambika Cement Depot", mobile: "9123456780", email: "ambika@cement.com" },
-    user: { name: "Ravi Shankar", mobile: "9666777888", email: "ravi@infrabuild.in" },
-    status: "pending",
-    paymentStatus: "pending",
-    notes: "Delivery at basement level — need advance notice",
-  },
-];
 
 export default function Bookings() {
   const dispatch = useDispatch();
@@ -297,11 +163,10 @@ export default function Bookings() {
     }
   };
 
-  // Use demo data when no real bookings exist
-  const isDemo = !loading && apiBookings.length === 0;
-  const allBookings = isDemo ? DEMO_BOOKINGS : apiBookings;
+  // Always show real bookings from the backend.
+  const allBookings = apiBookings;
 
-  // Client-side filtering (works for both demo and real data)
+  // Client-side filtering on top of the server query.
   const bookings = allBookings.filter((b) => {
     if (filters.status && b.status !== filters.status) return false;
     if (filters.paymentStatus && b.paymentStatus !== filters.paymentStatus) return false;
@@ -328,7 +193,7 @@ export default function Bookings() {
   });
 
   // Fetch bookings with filters
-  useEffect(() => {
+  const fetchBookings = useCallback(() => {
     const params = { page: 1, limit: 50 };
     if (filters.status) params.status = filters.status;
     if (filters.paymentStatus) params.paymentStatus = filters.paymentStatus;
@@ -336,6 +201,13 @@ export default function Bookings() {
     if (filters.toDate) params.toDate = filters.toDate;
     dispatch(getBookings(params));
   }, [dispatch, filters]);
+
+  useEffect(() => {
+    fetchBookings();
+  }, [fetchBookings]);
+
+  // Refresh orders periodically so new/pending orders appear in near real time.
+  usePolling(fetchBookings);
 
   // Handle toast messages
   useEffect(() => {
@@ -372,6 +244,17 @@ export default function Bookings() {
     });
   };
 
+  const formatDateTime = (dateStr) => {
+    if (!dateStr) return "-";
+    return new Date(dateStr).toLocaleString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
   const formatCurrency = (amount) => {
     if (!amount) return "₹0";
     return `₹${Number(amount).toLocaleString("en-IN")}`;
@@ -379,13 +262,6 @@ export default function Bookings() {
 
   return (
     <div className="space-y-6">
-      {/* DEMO BANNER */}
-      {isDemo && (
-        <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-xl px-4 py-3 text-sm flex items-center gap-2">
-          <span className="font-semibold">Demo Mode:</span> Showing sample bookings for preview. Real data will appear once bookings are placed.
-        </div>
-      )}
-
       {/* HEADER */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
@@ -643,7 +519,7 @@ export default function Bookings() {
                   {/* Order Status Dropdown */}
                   <td className="p-4 text-center">
                     <select
-                      value={booking.status}
+                      value={STATUS_ALIASES[booking.status] || booking.status}
                       onChange={(e) =>
                         handleStatusChange(booking._id, e.target.value)
                       }
@@ -765,6 +641,22 @@ export default function Bookings() {
                       {formatCurrency(selectedBooking.price)}
                     </span>
                   </div>
+                  {selectedBooking.discountAmount ? (
+                    <div>
+                      <span className="text-gray-500">Discount:</span>{" "}
+                      <span className="font-medium text-red-600">
+                        -{formatCurrency(selectedBooking.discountAmount)}
+                      </span>
+                    </div>
+                  ) : null}
+                  {selectedBooking.gstAmount ? (
+                    <div>
+                      <span className="text-gray-500">GST:</span>{" "}
+                      <span className="font-medium">
+                        {formatCurrency(selectedBooking.gstAmount)}
+                      </span>
+                    </div>
+                  ) : null}
                   <div>
                     <span className="text-gray-500">Total Amount:</span>{" "}
                     <span className="font-bold text-green-700">
@@ -773,6 +665,62 @@ export default function Bookings() {
                   </div>
                 </div>
               </div>
+
+              {/* Dispatch / Driver */}
+              {(selectedBooking.dispatch ||
+                selectedBooking.driver ||
+                selectedBooking.deliveryDate) && (
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                    <Truck size={16} /> Dispatch &amp; Delivery
+                  </h3>
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    {(selectedBooking.dispatch?.driverName ||
+                      selectedBooking.driver?.name ||
+                      typeof selectedBooking.driver === "string") && (
+                      <div>
+                        <span className="text-gray-500">Driver:</span>{" "}
+                        <span className="font-medium">
+                          {selectedBooking.dispatch?.driverName ||
+                            selectedBooking.driver?.name ||
+                            (typeof selectedBooking.driver === "string"
+                              ? selectedBooking.driver
+                              : "-")}
+                        </span>
+                      </div>
+                    )}
+                    {(selectedBooking.dispatch?.vehicleNumber ||
+                      selectedBooking.driver?.vehicleNumber) && (
+                      <div>
+                        <span className="text-gray-500">Vehicle:</span>{" "}
+                        <span className="font-medium">
+                          {selectedBooking.dispatch?.vehicleNumber ||
+                            selectedBooking.driver?.vehicleNumber}
+                        </span>
+                      </div>
+                    )}
+                    {selectedBooking.dispatch?.dispatchDate && (
+                      <div>
+                        <span className="text-gray-500">Dispatched:</span>{" "}
+                        <span className="font-medium">
+                          {formatDate(selectedBooking.dispatch.dispatchDate)}
+                          {selectedBooking.dispatch.dispatchTime
+                            ? ` · ${selectedBooking.dispatch.dispatchTime}`
+                            : ""}
+                        </span>
+                      </div>
+                    )}
+                    {selectedBooking.deliveryDate && (
+                      <div>
+                        <span className="text-gray-500">Delivery:</span>{" "}
+                        <span className="font-medium">
+                          {formatDate(selectedBooking.deliveryDate)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Vendor & User */}
               <div className="grid grid-cols-2 gap-4">
@@ -794,8 +742,8 @@ export default function Bookings() {
                     </p>
                   )}
 
-                  {/* Allocate / change vendor — only on real bookings */}
-                  {selectedBooking._id && !isDemo && (
+                  {/* Allocate / change vendor */}
+                  {selectedBooking._id && (
                     <div className="mt-3 pt-3 border-t border-gray-200">
                       <label className="block text-xs text-gray-500 mb-1">
                         {selectedBooking.vendor ? "Change vendor" : "Allocate vendor"}
@@ -868,6 +816,51 @@ export default function Bookings() {
                   )}
                 </div>
               )}
+
+              {/* Status History Timeline */}
+              {Array.isArray(selectedBooking.statusHistory) &&
+                selectedBooking.statusHistory.length > 0 && (
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                      <Clock size={16} /> Status History
+                    </h3>
+                    <ol className="space-y-3">
+                      {selectedBooking.statusHistory.map((h, i) => {
+                        const cfg = getStatusConfig(h.status);
+                        return (
+                          <li key={i} className="flex gap-3">
+                            <div className="flex flex-col items-center">
+                              <span className="w-2.5 h-2.5 rounded-full bg-orange-400 mt-1.5" />
+                              {i <
+                                selectedBooking.statusHistory.length - 1 && (
+                                <span className="w-px flex-1 bg-gray-300" />
+                              )}
+                            </div>
+                            <div className="flex-1 pb-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span
+                                  className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${cfg.color}`}
+                                >
+                                  {cfg.label}
+                                </span>
+                                {h.at && (
+                                  <span className="text-xs text-gray-400">
+                                    {formatDateTime(h.at)}
+                                  </span>
+                                )}
+                              </div>
+                              {h.note && (
+                                <p className="text-xs text-gray-500 mt-1">
+                                  {h.note}
+                                </p>
+                              )}
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ol>
+                  </div>
+                )}
 
               {/* Dates */}
               <div className="flex items-center gap-2 text-xs text-gray-500">
