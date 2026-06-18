@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import { useSearchParams } from "react-router-dom";
 import usePolling from "../hooks/usePolling";
 import {
   Search,
@@ -120,17 +121,28 @@ export default function Bookings() {
   );
   const { vendors } = useSelector((state) => state.vendors);
 
+  const [searchParams] = useSearchParams();
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [vendorPick, setVendorPick] = useState("");
   const [allocating, setAllocating] = useState(false);
   const [filters, setFilters] = useState({
     search: "",
-    status: "",
+    // Pre-fill status from the URL (e.g. when arriving from a Dashboard card).
+    status: searchParams.get("status") || "",
     paymentStatus: "",
     fromDate: "",
     toDate: "",
   });
+
+  // Keep the status filter in sync if the URL query changes (deep links).
+  useEffect(() => {
+    const urlStatus = searchParams.get("status") || "";
+    setFilters((prev) =>
+      prev.status === urlStatus ? prev : { ...prev, status: urlStatus },
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   // Load vendors once for the allocation picker
   useEffect(() => {

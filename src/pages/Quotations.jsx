@@ -132,6 +132,142 @@ export default function Quotations() {
     }
   };
 
+  // Generate a formatted quotation PDF (client-side via the browser's
+  // print-to-PDF — no third-party service). Opens a printable document.
+  const handleDownloadPdf = (q) => {
+    if (!q) return;
+    const esc = (v) =>
+      String(v ?? "—").replace(
+        /[&<>"]/g,
+        (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c],
+      );
+    const money = (v) =>
+      v != null && v !== "" ? `₹ ${Number(v).toLocaleString("en-IN")}` : "—";
+
+    const items =
+      Array.isArray(q.items) && q.items.length > 0
+        ? q.items
+        : [
+            {
+              materialName: q.category,
+              categoryName: q.category,
+              quantity: q.quantity,
+              unit: q.unit,
+              note: q.materialRequirement,
+            },
+          ];
+
+    const rows = items
+      .map((it, i) => {
+        const name =
+          it.materialName || it.subCategoryName || it.categoryName || "—";
+        const path = [it.categoryName, it.subCategoryName, it.materialName]
+          .filter(Boolean)
+          .join(" › ");
+        return `<tr>
+          <td>${i + 1}</td>
+          <td><div class="b">${esc(name)}</div>${
+            path ? `<div class="s">${esc(path)}</div>` : ""
+          }${it.note ? `<div class="s">Note: ${esc(it.note)}</div>` : ""}</td>
+          <td class="r">${esc(it.quantity ?? "—")} ${esc(it.unit ?? "")}</td>
+        </tr>`;
+      })
+      .join("");
+
+    const html = `<!doctype html><html><head><meta charset="utf-8"/>
+      <title>Quotation ${esc(q.quotationCode || "")}</title>
+      <style>
+        *{box-sizing:border-box} body{font-family:Arial,Helvetica,sans-serif;color:#222;margin:0;padding:32px;}
+        .top{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #FDE200;padding-bottom:16px;margin-bottom:20px}
+        .brand{font-size:28px;font-weight:bold;letter-spacing:1px;color:#404040}
+        .brand small{display:block;font-size:12px;font-weight:normal;color:#888;letter-spacing:0}
+        h1{font-size:18px;margin:0;color:#404040}
+        .muted{color:#777;font-size:12px}
+        .grid{display:flex;gap:24px;margin-bottom:20px}
+        .grid>div{flex:1}
+        .card{border:1px solid #eee;border-radius:8px;padding:12px 14px}
+        .card h2{font-size:12px;text-transform:uppercase;color:#999;margin:0 0 8px}
+        .row{font-size:13px;margin:3px 0}
+        .row b{display:inline-block;min-width:90px;color:#555;font-weight:600}
+        table{width:100%;border-collapse:collapse;margin-top:8px}
+        th,td{border:1px solid #eee;padding:8px 10px;font-size:13px;text-align:left;vertical-align:top}
+        th{background:#fafafa;color:#555;font-size:11px;text-transform:uppercase}
+        td.r,th.r{text-align:right}
+        .b{font-weight:600}.s{font-size:11px;color:#888;margin-top:2px}
+        .totals{margin-top:18px;display:flex;justify-content:flex-end}
+        .totals table{width:auto;min-width:260px}
+        .totals td{border:none;padding:4px 8px}
+        .totals .grand td{border-top:2px solid #FDE200;font-size:16px;font-weight:bold;padding-top:8px}
+        .foot{margin-top:32px;border-top:1px solid #eee;padding-top:12px;font-size:11px;color:#999;text-align:center}
+        @media print{body{padding:0;margin:16px}}
+      </style></head><body>
+      <div class="top">
+        <div class="brand">OTG<small>On The Go — Construction Materials</small></div>
+        <div style="text-align:right">
+          <h1>QUOTATION</h1>
+          <div class="muted">${esc(q.quotationCode || "")}</div>
+          <div class="muted">Date: ${new Date(
+            q.createdAt || Date.now(),
+          ).toLocaleDateString("en-IN")}</div>
+          <div class="muted">Status: ${esc(q.status || "—")}</div>
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="card">
+          <h2>Bill To</h2>
+          <div class="row"><b>Name</b> ${esc(q.name)}</div>
+          <div class="row"><b>Mobile</b> ${esc(q.mobile)}</div>
+          <div class="row"><b>Email</b> ${esc(q.email || "—")}</div>
+          <div class="row"><b>Company</b> ${esc(q.company || "—")}</div>
+        </div>
+        <div class="card">
+          <h2>Delivery / Address</h2>
+          <div class="row"><b>Type</b> ${esc(q.customerType || "—")}</div>
+          <div class="row"><b>Address</b> ${esc(q.address || "—")}</div>
+          <div class="row"><b>Landmark</b> ${esc(q.landmark || "—")}</div>
+        </div>
+      </div>
+
+      <table>
+        <thead><tr><th style="width:40px">#</th><th>Requirement</th><th class="r" style="width:130px">Quantity</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+
+      <div class="totals"><table>
+        <tr><td>Quoted Price</td><td class="r">${money(q.quotedPrice)}</td></tr>
+        <tr><td>Valid Till</td><td class="r">${
+          q.quotedValidTill
+            ? new Date(q.quotedValidTill).toLocaleDateString("en-IN")
+            : "—"
+        }</td></tr>
+        <tr class="grand"><td>Total</td><td class="r">${money(
+          q.quotedPrice,
+        )}</td></tr>
+      </table></div>
+
+      ${
+        q.adminNotes
+          ? `<div class="card" style="margin-top:18px"><h2>Notes</h2><div class="row">${esc(
+              q.adminNotes,
+            )}</div></div>`
+          : ""
+      }
+
+      <div class="foot">This is a system-generated quotation from OTG. Prices are valid until the date mentioned above.</div>
+      <script>window.onload=function(){window.print();}</script>
+      </body></html>`;
+
+    const w = window.open("", "_blank");
+    if (!w) {
+      toast.error("Please allow pop-ups to download the PDF");
+      return;
+    }
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
+  };
+
   useEffect(() => {
     dispatch(getQuotationCounts());
   }, [dispatch]);
@@ -459,12 +595,22 @@ export default function Quotations() {
               <h2 className="text-xl font-bold">
                 Quotation {detail.quotationCode}
               </h2>
-              <button
-                onClick={() => setDetail(null)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <X size={24} />
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => handleDownloadPdf(detail)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
+                  title="Download quotation as PDF"
+                >
+                  <FileDown size={16} />
+                  Download PDF
+                </button>
+                <button
+                  onClick={() => setDetail(null)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X size={24} />
+                </button>
+              </div>
             </div>
             <div className="space-y-4">
               <Section title="Customer">

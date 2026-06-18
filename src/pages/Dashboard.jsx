@@ -17,8 +17,10 @@ import {
 import Card from "../components/ui/Card";
 import api from "../services/api";
 import usePolling from "../hooks/usePolling";
+import { useNavigate } from "react-router-dom";
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const [dashboardStats, setDashboardStats] = useState(null);
   const [topMaterials, setTopMaterials] = useState([]);
   const [topVendors, setTopVendors] = useState([]);
@@ -153,6 +155,7 @@ export default function Dashboard() {
       trend: "up",
       color: "text-orange-600",
       bgColor: "bg-orange-50",
+      to: "/bookings",
     },
     {
       icon: Package,
@@ -162,6 +165,7 @@ export default function Dashboard() {
       trend: "up",
       color: "text-yellow-600",
       bgColor: "bg-yellow-50",
+      to: "/bookings?status=pending",
     },
     {
       icon: Truck,
@@ -171,6 +175,7 @@ export default function Dashboard() {
       trend: "up",
       color: "text-purple-600",
       bgColor: "bg-purple-50",
+      to: "/bookings?status=in_transit",
     },
     {
       icon: CheckCircle,
@@ -180,6 +185,7 @@ export default function Dashboard() {
       trend: "up",
       color: "text-green-600",
       bgColor: "bg-green-50",
+      to: "/bookings?status=delivered",
     },
     {
       icon: TrendingUp,
@@ -189,6 +195,7 @@ export default function Dashboard() {
       trend: "up",
       color: "text-blue-600",
       bgColor: "bg-blue-50",
+      to: "/transactions",
     },
   ];
 
@@ -209,7 +216,11 @@ export default function Dashboard() {
             stat.trend === "up" ? "text-green-600" : "text-red-600";
 
           return (
-            <Card key={idx} className="relative">
+            <Card
+              key={idx}
+              className="relative"
+              onClick={stat.to ? () => navigate(stat.to) : null}
+            >
               <div className="flex items-start justify-between mb-4">
                 <div className={`p-3 rounded-lg ${stat.bgColor}`}>
                   <Icon size={24} className={stat.color} />
@@ -322,26 +333,38 @@ export default function Dashboard() {
         {/* Order Status */}
         <Card title="Order Status" icon={AlertTriangle}>
           <div className="space-y-3">
-            <div className="flex items-center justify-between p-3 rounded-lg bg-yellow-50">
+            <div
+              onClick={() => navigate("/bookings?status=pending")}
+              className="flex items-center justify-between p-3 rounded-lg bg-yellow-50 cursor-pointer hover:ring-1 hover:ring-yellow-300"
+            >
               <span className="text-sm font-medium">Pending Orders</span>
               <span className="font-bold text-yellow-600">{pendingOrders}</span>
             </div>
 
-            <div className="flex items-center justify-between p-3 rounded-lg bg-purple-50">
+            <div
+              onClick={() => navigate("/bookings?status=in_transit")}
+              className="flex items-center justify-between p-3 rounded-lg bg-purple-50 cursor-pointer hover:ring-1 hover:ring-purple-300"
+            >
               <span className="text-sm font-medium">In-Transit Orders</span>
               <span className="font-bold text-purple-600">
                 {inTransitOrders}
               </span>
             </div>
 
-            <div className="flex items-center justify-between p-3 rounded-lg bg-green-50">
+            <div
+              onClick={() => navigate("/bookings?status=delivered")}
+              className="flex items-center justify-between p-3 rounded-lg bg-green-50 cursor-pointer hover:ring-1 hover:ring-green-300"
+            >
               <span className="text-sm font-medium">Completed Orders</span>
               <span className="font-bold text-green-600">
                 {completedOrders}
               </span>
             </div>
 
-            <div className="flex items-center justify-between p-3 rounded-lg bg-orange-50">
+            <div
+              onClick={() => navigate("/transactions")}
+              className="flex items-center justify-between p-3 rounded-lg bg-orange-50 cursor-pointer hover:ring-1 hover:ring-orange-300"
+            >
               <span className="text-sm font-medium">Total Revenue</span>
               <span className="font-bold text-orange-600">
                 ₹{(dashboardStats?.totalRevenue || 0).toLocaleString()}
@@ -354,7 +377,7 @@ export default function Dashboard() {
       {/* BOTTOM GRID */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Top 5 Materials */}
-        <Card title="Top 5 Materials" icon={Package}>
+        <Card title="Top 5 Materials" icon={Package} onClick={() => navigate("/materials")}>
           {topMaterials && topMaterials.length > 0 ? (
             <div className="space-y-3">
               {topMaterials.map((material, idx) => (
@@ -393,7 +416,7 @@ export default function Dashboard() {
         </Card>
 
         {/* Top Vendors */}
-        <Card title="Top Performing Vendors" icon={Users}>
+        <Card title="Top Performing Vendors" icon={Users} onClick={() => navigate("/vendors")}>
           {topVendors && topVendors.length > 0 ? (
             <div className="space-y-3">
               {topVendors.map((vendor, idx) => (
