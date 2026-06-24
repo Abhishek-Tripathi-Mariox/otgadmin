@@ -78,6 +78,24 @@ export const allocateVendor = createAsyncThunk(
   },
 );
 
+// Allocate (or change) the driver for a booking — dispatches it to the driver app
+export const allocateDriver = createAsyncThunk(
+  "bookings/allocateDriver",
+  async ({ id, driverId, vehicleNumber }, { rejectWithValue }) => {
+    try {
+      const response = await api.patch(`/bookings/${id}/driver`, {
+        driverId,
+        vehicleNumber,
+      });
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to assign driver.",
+      );
+    }
+  },
+);
+
 // Delete booking
 export const deleteBooking = createAsyncThunk(
   "bookings/delete",
@@ -174,6 +192,24 @@ const bookingSlice = createSlice({
         state.message = action.payload.message || "Vendor allocated.";
       })
       .addCase(allocateVendor.rejected, (state, action) => {
+        state.error = action.payload;
+      })
+      // Allocate Driver
+      .addCase(allocateDriver.pending, (state) => {
+        state.error = null;
+      })
+      .addCase(allocateDriver.fulfilled, (state, action) => {
+        const updated = action.payload.data;
+        const index = state.bookings.findIndex((b) => b._id === updated._id);
+        if (index !== -1) {
+          state.bookings[index] = updated;
+        }
+        if (state.booking && state.booking._id === updated._id) {
+          state.booking = updated;
+        }
+        state.message = action.payload.message || "Driver assigned.";
+      })
+      .addCase(allocateDriver.rejected, (state, action) => {
         state.error = action.payload;
       })
       // Delete

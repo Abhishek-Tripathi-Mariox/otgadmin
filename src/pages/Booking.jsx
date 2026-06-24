@@ -17,16 +17,20 @@ import {
   Calendar,
   CreditCard,
   Clock,
+  CheckCircle,
+  ShieldCheck,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import {
   getBookings,
   updateBookingStatus,
   allocateVendor,
+  allocateDriver,
   clearMessage,
   clearError,
 } from "../store/slices/bookingSlice";
 import { getVendors } from "../store/slices/vendorSlice";
+import { getDrivers } from "../store/slices/driverSlice";
 
 const STATUS_OPTIONS = [
   {
@@ -120,12 +124,16 @@ export default function Bookings() {
     (state) => state.bookings,
   );
   const { vendors } = useSelector((state) => state.vendors);
+  const { drivers } = useSelector((state) => state.drivers);
 
   const [searchParams] = useSearchParams();
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [vendorPick, setVendorPick] = useState("");
   const [allocating, setAllocating] = useState(false);
+  const [driverPick, setDriverPick] = useState("");
+  const [vehiclePick, setVehiclePick] = useState("");
+  const [assigningDriver, setAssigningDriver] = useState(false);
   const [filters, setFilters] = useState({
     search: "",
     // Pre-fill status from the URL (e.g. when arriving from a Dashboard card).
@@ -144,15 +152,24 @@ export default function Bookings() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
-  // Load vendors once for the allocation picker
+  // Load vendors + drivers once for the allocation pickers
   useEffect(() => {
     dispatch(getVendors({ page: 1, limit: 200 }));
+    dispatch(getDrivers({ page: 1, limit: 200 }));
   }, [dispatch]);
 
-  // Sync local vendor pick with whichever booking is open
+  // Sync local vendor / driver / vehicle pick with whichever booking is open
   useEffect(() => {
     setVendorPick(selectedBooking?.vendor?._id || "");
+    setDriverPick(selectedBooking?.driver?._id || "");
+    setVehiclePick(selectedBooking?.dispatch?.vehicleNumber || "");
   }, [selectedBooking?._id]);
+
+  // Reset the vehicle pick whenever a different driver is chosen
+  useEffect(() => {
+    setVehiclePick(selectedBooking?.dispatch?.vehicleNumber || "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [driverPick]);
 
   const handleAllocateVendor = async () => {
     if (!selectedBooking?._id) {
@@ -172,6 +189,43 @@ export default function Bookings() {
       // toast handled via redux error
     } finally {
       setAllocating(false);
+    }
+  };
+
+  const handleApproveQc = async () => {
+    if (!selectedBooking?._id) return;
+    try {
+      const res = await dispatch(
+        updateBookingStatus({
+          id: selectedBooking._id,
+          status: "qc_approved",
+        }),
+      ).unwrap();
+      if (res?.data) setSelectedBooking(res.data);
+    } catch {
+      // toast handled via redux error
+    }
+  };
+
+  const handleAssignDriver = async () => {
+    if (!selectedBooking?._id) {
+      toast.error("Open a saved booking to assign a driver.");
+      return;
+    }
+    try {
+      setAssigningDriver(true);
+      const res = await dispatch(
+        allocateDriver({
+          id: selectedBooking._id,
+          driverId: driverPick || null,
+          vehicleNumber: driverPick ? vehiclePick || null : null,
+        }),
+      ).unwrap();
+      if (res?.data) setSelectedBooking(res.data);
+    } catch {
+      // toast handled via redux error
+    } finally {
+      setAssigningDriver(false);
     }
   };
 
@@ -808,6 +862,199 @@ export default function Bookings() {
                   )}
                 </div>
               </div>
+
+              {/* Quality Check — photos & note submitted by the vendor */}
+              {selectedBooking.qc &&
+                (selectedBooking.qc.materialPhotos?.length > 0 ||
+                  selectedBooking.qc.packagingPhotos?.length > 0 ||
+                  selectedBooking.qc.note) && (
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-2">
+                        <ShieldCheck size={16} /> Quality Check
+                      </h3>
+                      {selectedBooking.status === "qc_pending" && (
+                        <button
+                          onClick={handleApproveQc}
+                          className="btn-primary text-sm flex items-center gap-1"
+                        >
+                          <CheckCircle size={14} /> Approve QC
+                        </button>
+                      )}
+                    </div>
+
+                    {selectedBooking.qc.materialPhotos?.length > 0 && (
+                      <div className="mb-3">
+                        <p className="text-xs text-gray-500 mb-1">
+                          Material Photos
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {selectedBooking.qc.materialPhotos.map((url, i) => (
+                            <a
+                              key={i}
+                              href={url}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              <img
+                                src={url}
+                                alt="QC material"
+                                className="w-20 h-20 object-cover rounded-lg border"
+                              />
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {selectedBooking.qc.packagingPhotos?.length > 0 && (
+                      <div className="mb-3">
+                        <p className="text-xs text-gray-500 mb-1">
+                          Packaging Photos
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {selectedBooking.qc.packagingPhotos.map((url, i) => (
+                            <a
+                              key={i}
+                              href={url}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              <img
+                                src={url}
+                                alt="QC packaging"
+                                className="w-20 h-20 object-cover rounded-lg border"
+                              />
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {selectedBooking.qc.note && (
+                      <p className="text-sm text-gray-600">
+                        <span className="text-gray-500">Note: </span>
+                        {selectedBooking.qc.note}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+              {/* Driver Assignment — assigning a driver dispatches the order
+                  so it shows up in the driver app */}
+              {selectedBooking._id && (
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                    <Truck size={16} /> Driver
+                  </h3>
+                  <p className="text-sm font-medium">
+                    {selectedBooking.driver?.name ||
+                      selectedBooking.dispatch?.driverName ||
+                      "Not assigned"}
+                  </p>
+                  {selectedBooking.driver?.mobile && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      📞 {selectedBooking.driver.mobile}
+                    </p>
+                  )}
+
+                  {/* Shipment load — admin uses this to pick a vehicle with
+                      enough lifting capacity */}
+                  <div className="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-xs">
+                    <span className="text-gray-500">
+                      Shipment load:{" "}
+                      <span className="font-semibold text-gray-700">
+                        {selectedBooking.quantity} {selectedBooking.unit || ""}
+                      </span>
+                    </span>
+                    {selectedBooking.dispatch?.vehicleNumber && (
+                      <span className="text-gray-500">
+                        Vehicle:{" "}
+                        <span className="font-semibold text-gray-700">
+                          {selectedBooking.dispatch.vehicleNumber}
+                        </span>
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="mt-3 pt-3 border-t border-gray-200">
+                    <label className="block text-xs text-gray-500 mb-1">
+                      {selectedBooking.driver ? "Change driver" : "Assign driver"}
+                    </label>
+                    <select
+                      className="input-field w-full text-sm"
+                      value={driverPick}
+                      onChange={(e) => setDriverPick(e.target.value)}
+                    >
+                      <option value="">-- Unassigned --</option>
+                      {drivers
+                        .filter((d) => d.approvalStatus === "approved")
+                        .map((d) => (
+                          <option key={d._id} value={d._id}>
+                            {d.name || d.mobile}
+                            {d.vehicles?.[0]?.registrationNo
+                              ? ` · ${d.vehicles[0].registrationNo}`
+                              : ""}
+                          </option>
+                        ))}
+                    </select>
+
+                    {/* Vehicle picker — choose the right vehicle for the load */}
+                    {(() => {
+                      const driverObj = drivers.find(
+                        (d) => d._id === driverPick,
+                      );
+                      const vehicles = driverObj?.vehicles || [];
+                      if (!driverPick || vehicles.length === 0) return null;
+                      return (
+                        <div className="mt-2">
+                          <label className="block text-xs text-gray-500 mb-1">
+                            Vehicle (by lifting capacity)
+                          </label>
+                          <select
+                            className="input-field w-full text-sm"
+                            value={vehiclePick}
+                            onChange={(e) => setVehiclePick(e.target.value)}
+                          >
+                            <option value="">-- Auto (first vehicle) --</option>
+                            {vehicles.map((v) => (
+                              <option
+                                key={v._id || v.registrationNo}
+                                value={v.registrationNo}
+                              >
+                                {v.registrationNo || "Vehicle"}
+                                {v.type ? ` · ${v.type}` : ""}
+                                {v.liftingCapacity
+                                  ? ` · cap ${v.liftingCapacity}`
+                                  : ""}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      );
+                    })()}
+
+                    <div className="mt-2 flex justify-end">
+                      <button
+                        onClick={handleAssignDriver}
+                        disabled={
+                          assigningDriver ||
+                          (driverPick === (selectedBooking.driver?._id || "") &&
+                            vehiclePick ===
+                              (selectedBooking.dispatch?.vehicleNumber || ""))
+                        }
+                        className="btn-primary text-sm"
+                      >
+                        {assigningDriver ? "Saving..." : "Save"}
+                      </button>
+                    </div>
+                    <p className="text-[11px] text-gray-400 mt-1">
+                      Assigning a driver marks the order as dispatched and sends
+                      it to the driver app.
+                    </p>
+                  </div>
+                </div>
+              )}
 
               {/* Extra Info */}
               {(selectedBooking.site || selectedBooking.notes) && (
