@@ -326,7 +326,7 @@ export default function SupportTickets() {
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-5 space-y-3">
+            <div className="overflow-y-auto p-5 space-y-3 min-h-[120px] max-h-[55vh]">
               {/* Original message */}
               <ChatBubble
                 from="customer"

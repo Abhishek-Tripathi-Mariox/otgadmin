@@ -38,9 +38,10 @@ export default function Brands() {
   const [imagePreview, setImagePreview] = useState(null);
   const fileInputRef = useRef(null);
 
-  // Fetch brands on mount
+  // Fetch brands on mount. Use a high limit so ALL brands show (the API
+  // defaults to only 10 per page, which hid newly added / older brands).
   useEffect(() => {
-    dispatch(getBrands());
+    dispatch(getBrands({ limit: 1000 }));
   }, [dispatch]);
 
   // Handle success/error messages

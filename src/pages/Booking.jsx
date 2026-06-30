@@ -133,6 +133,7 @@ export default function Bookings() {
   const [allocating, setAllocating] = useState(false);
   const [driverPick, setDriverPick] = useState("");
   const [vehiclePick, setVehiclePick] = useState("");
+  const [vehicleTypePick, setVehicleTypePick] = useState("");
   const [assigningDriver, setAssigningDriver] = useState(false);
   const [filters, setFilters] = useState({
     search: "",
@@ -163,6 +164,7 @@ export default function Bookings() {
     setVendorPick(selectedBooking?.vendor?._id || "");
     setDriverPick(selectedBooking?.driver?._id || "");
     setVehiclePick(selectedBooking?.dispatch?.vehicleNumber || "");
+    setVehicleTypePick(selectedBooking?.vehicleType || "");
   }, [selectedBooking?._id]);
 
   // Reset the vehicle pick whenever a different driver is chosen
@@ -219,6 +221,7 @@ export default function Bookings() {
           id: selectedBooking._id,
           driverId: driverPick || null,
           vehicleNumber: driverPick ? vehiclePick || null : null,
+          vehicleType: vehicleTypePick || null,
         }),
       ).unwrap();
       if (res?.data) setSelectedBooking(res.data);
@@ -273,7 +276,8 @@ export default function Bookings() {
   }, [fetchBookings]);
 
   // Refresh orders periodically so new/pending orders appear in near real time.
-  usePolling(fetchBookings);
+  // Poll every 10s so order status changes reflect near real-time (client ask).
+  usePolling(fetchBookings, 10000);
 
   // Handle toast messages
   useEffect(() => {
@@ -975,6 +979,14 @@ export default function Bookings() {
                         </span>
                       </span>
                     )}
+                    {selectedBooking.vehicleType && (
+                      <span className="text-gray-500">
+                        Type:{" "}
+                        <span className="font-semibold text-gray-700">
+                          {selectedBooking.vehicleType}
+                        </span>
+                      </span>
+                    )}
                   </div>
 
                   <div className="mt-3 pt-3 border-t border-gray-200">
@@ -998,6 +1010,24 @@ export default function Bookings() {
                           </option>
                         ))}
                     </select>
+
+                    {/* Vehicle type for this shipment (2/3/4/6-wheeler) */}
+                    <div className="mt-2">
+                      <label className="block text-xs text-gray-500 mb-1">
+                        Vehicle Type
+                      </label>
+                      <select
+                        className="input-field w-full text-sm"
+                        value={vehicleTypePick}
+                        onChange={(e) => setVehicleTypePick(e.target.value)}
+                      >
+                        <option value="">-- Select vehicle type --</option>
+                        <option value="2-wheeler">2-wheeler</option>
+                        <option value="3-wheeler">3-wheeler</option>
+                        <option value="4-wheeler">4-wheeler</option>
+                        <option value="6-wheeler">6-wheeler</option>
+                      </select>
+                    </div>
 
                     {/* Vehicle picker — choose the right vehicle for the load */}
                     {(() => {
@@ -1041,7 +1071,9 @@ export default function Bookings() {
                           assigningDriver ||
                           (driverPick === (selectedBooking.driver?._id || "") &&
                             vehiclePick ===
-                              (selectedBooking.dispatch?.vehicleNumber || ""))
+                              (selectedBooking.dispatch?.vehicleNumber || "") &&
+                            vehicleTypePick ===
+                              (selectedBooking.vehicleType || ""))
                         }
                         className="btn-primary text-sm"
                       >

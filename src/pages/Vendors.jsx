@@ -18,6 +18,8 @@ import {
   Phone,
   Mail,
   Package,
+  CheckCircle,
+  XCircle,
   Map,
 } from "lucide-react";
 import toast from "react-hot-toast";
@@ -30,6 +32,8 @@ import {
   restoreVendor,
   permanentDeleteVendor,
   toggleVendorStatus,
+  approveVendor,
+  rejectVendor,
   getStates,
   clearMessage,
   clearError,
@@ -54,6 +58,9 @@ export default function Vendors() {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [isLocationPickerOpen, setIsLocationPickerOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [rejectModalOpen, setRejectModalOpen] = useState(false);
+  const [rejectTargetId, setRejectTargetId] = useState(null);
+  const [rejectReason, setRejectReason] = useState("");
 
   const [formData, setFormData] = useState({
     name: "",
@@ -290,6 +297,37 @@ export default function Vendors() {
 
   const handleToggleStatus = async (id) => {
     await dispatch(toggleVendorStatus(id));
+  };
+
+  const handleApproveVendor = async (id) => {
+    if (
+      window.confirm(
+        "Approve this vendor? They will be able to receive orders.",
+      )
+    ) {
+      await dispatch(approveVendor(id));
+    }
+  };
+
+  const openRejectModal = (id) => {
+    setRejectTargetId(id);
+    setRejectReason("");
+    setRejectModalOpen(true);
+  };
+
+  const confirmRejectVendor = async () => {
+    if (!rejectReason.trim()) {
+      toast.error("Please enter a reason for rejection.");
+      return;
+    }
+    const res = await dispatch(
+      rejectVendor({ id: rejectTargetId, reason: rejectReason.trim() }),
+    );
+    if (!res.error) {
+      setRejectModalOpen(false);
+      setRejectTargetId(null);
+      setRejectReason("");
+    }
   };
 
   // Deleted vendors modal handlers
@@ -551,19 +589,55 @@ export default function Vendors() {
                   )}
                 </td>
                 <td className="p-4">
-                  <button
-                    onClick={() => handleToggleStatus(vendor._id)}
-                    className={`text-xs px-3 py-1 rounded-full cursor-pointer transition ${
-                      vendor.status === "active"
-                        ? "bg-green-100 text-green-700 hover:bg-green-200"
-                        : "bg-red-100 text-red-700 hover:bg-red-200"
-                    }`}
-                  >
-                    {vendor.status === "active" ? "Active" : "Inactive"}
-                  </button>
+                  <div className="flex flex-col items-start gap-1">
+                    {/* Approval state for self-registered vendors */}
+                    {vendor.approvalStatus === "pending" ? (
+                      <span className="text-xs px-3 py-1 rounded-full bg-yellow-100 text-yellow-700">
+                        Pending Approval
+                      </span>
+                    ) : vendor.approvalStatus === "rejected" ? (
+                      <span
+                        className="text-xs px-3 py-1 rounded-full bg-red-100 text-red-700"
+                        title={vendor.rejectionReason || ""}
+                      >
+                        Rejected
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => handleToggleStatus(vendor._id)}
+                        className={`text-xs px-3 py-1 rounded-full cursor-pointer transition ${
+                          vendor.status === "active"
+                            ? "bg-green-100 text-green-700 hover:bg-green-200"
+                            : "bg-red-100 text-red-700 hover:bg-red-200"
+                        }`}
+                      >
+                        {vendor.status === "active" ? "Active" : "Inactive"}
+                      </button>
+                    )}
+                  </div>
                 </td>
                 <td className="p-4 text-right">
                   <div className="flex justify-end gap-2">
+                    {/* Quick approve/reject for self-registered vendors */}
+                    {(vendor.approvalStatus === "pending" ||
+                      vendor.approvalStatus === "rejected") && (
+                      <button
+                        onClick={() => handleApproveVendor(vendor._id)}
+                        className="text-green-600 hover:text-green-800 p-1"
+                        title="Approve vendor"
+                      >
+                        <CheckCircle size={18} />
+                      </button>
+                    )}
+                    {vendor.approvalStatus === "pending" && (
+                      <button
+                        onClick={() => openRejectModal(vendor._id)}
+                        className="text-red-600 hover:text-red-800 p-1"
+                        title="Reject vendor"
+                      >
+                        <XCircle size={18} />
+                      </button>
+                    )}
                     <button
                       onClick={() => handleManageMaterials(vendor._id)}
                       className="text-purple-600 hover:text-purple-800 p-1"
@@ -1063,6 +1137,100 @@ export default function Vendors() {
                 </div>
               </div>
 
+              {/* Documents & Approval (self-registered vendors) */}
+              {editingId &&
+                (() => {
+                  const ev = vendors.find((v) => v._id === editingId);
+                  if (!ev) return null;
+                  const docs = ev.documents || {};
+                  const docList = [
+                    { key: "gstCertificate", label: "GST Certificate" },
+                    { key: "panCard", label: "PAN Card" },
+                    { key: "tradeLicense", label: "Trade License" },
+                    { key: "bankCheque", label: "Bank Cheque / Passbook" },
+                  ];
+                  const isPending = ev.approvalStatus === "pending";
+                  const isRejected = ev.approvalStatus === "rejected";
+                  return (
+                    <div className="pt-4 border-t">
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="text-sm font-semibold text-gray-700">
+                          Documents &amp; Approval
+                        </h3>
+                        <span
+                          className={`text-xs px-3 py-1 rounded-full ${
+                            isPending
+                              ? "bg-yellow-100 text-yellow-700"
+                              : isRejected
+                                ? "bg-red-100 text-red-700"
+                                : "bg-green-100 text-green-700"
+                          }`}
+                        >
+                          {isPending
+                            ? "Pending Approval"
+                            : isRejected
+                              ? "Rejected"
+                              : "Approved"}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3 mb-3">
+                        {docList.map((d) => (
+                          <div
+                            key={d.key}
+                            className="flex items-center justify-between border rounded-lg p-2"
+                          >
+                            <span className="text-xs text-gray-600">
+                              {d.label}
+                            </span>
+                            {docs[d.key] ? (
+                              <a
+                                href={docs[d.key]}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-xs text-blue-600 hover:underline"
+                              >
+                                View
+                              </a>
+                            ) : (
+                              <span className="text-xs text-gray-400">
+                                Not uploaded
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+
+                      {isRejected && ev.rejectionReason && (
+                        <p className="text-xs text-red-600 mb-3">
+                          Reason: {ev.rejectionReason}
+                        </p>
+                      )}
+
+                      {(isPending || isRejected) && (
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleApproveVendor(ev._id)}
+                            className="btn-primary text-sm"
+                          >
+                            Approve
+                          </button>
+                          {!isRejected && (
+                            <button
+                              type="button"
+                              onClick={() => openRejectModal(ev._id)}
+                              className="btn-secondary text-sm text-red-600 border-red-200 hover:bg-red-50"
+                            >
+                              Reject
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
               <div className="flex justify-end gap-3 pt-4 border-t">
                 <button
                   type="button"
@@ -1080,6 +1248,53 @@ export default function Vendors() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* REJECT VENDOR MODAL */}
+      {rejectModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl w-full max-w-md p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-semibold text-gray-800">
+                Reject Vendor
+              </h2>
+              <button
+                onClick={() => setRejectModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <label className="block text-sm text-gray-600 mb-1">
+              Reason for rejection <span className="text-red-500">*</span>
+            </label>
+            <textarea
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              rows={4}
+              placeholder="e.g. Documents unclear / details don't match…"
+              className="input-field w-full text-sm"
+            />
+            <p className="text-xs text-gray-400 mt-1">
+              This reason will be shown to the vendor in their app.
+            </p>
+            <div className="flex justify-end gap-3 mt-5">
+              <button
+                onClick={() => setRejectModalOpen(false)}
+                className="btn-secondary"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmRejectVendor}
+                disabled={loading}
+                className="btn-primary bg-red-600 hover:bg-red-700"
+              >
+                {loading ? "Rejecting..." : "Reject Vendor"}
+              </button>
+            </div>
           </div>
         </div>
       )}

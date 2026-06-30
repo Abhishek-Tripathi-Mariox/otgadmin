@@ -81,11 +81,12 @@ export const allocateVendor = createAsyncThunk(
 // Allocate (or change) the driver for a booking — dispatches it to the driver app
 export const allocateDriver = createAsyncThunk(
   "bookings/allocateDriver",
-  async ({ id, driverId, vehicleNumber }, { rejectWithValue }) => {
+  async ({ id, driverId, vehicleNumber, vehicleType }, { rejectWithValue }) => {
     try {
       const response = await api.patch(`/bookings/${id}/driver`, {
         driverId,
         vehicleNumber,
+        vehicleType,
       });
       return response.data;
     } catch (error) {

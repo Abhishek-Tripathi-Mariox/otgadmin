@@ -37,6 +37,7 @@ import {
   restoreDriver,
   permanentDeleteDriver,
   toggleDriverStatus,
+  approveDriver,
   rejectDriver,
   approveDocument,
   rejectDocument,
@@ -161,6 +162,16 @@ export default function Drivers() {
 
   const handleStatusChange = async (id, newStatus) => {
     await dispatch(toggleDriverStatus({ id, status: newStatus }));
+  };
+
+  const handleApprove = async (id) => {
+    if (
+      window.confirm("Approve this driver? They will be able to log in and work.")
+    ) {
+      // approveDriver.fulfilled updates both the list row and the open detail
+      // (state.driver) via replaceInList, so the status reflects immediately.
+      await dispatch(approveDriver(id));
+    }
   };
 
   const openRejectModal = (target) => {
@@ -546,15 +557,24 @@ export default function Drivers() {
                     <td className="p-4">
                       <div className="flex justify-end gap-2">
                         {d.approvalStatus === "pending" && (
-                          <button
-                            onClick={() =>
-                              openRejectModal({ kind: "driver", id: d._id })
-                            }
-                            className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg"
-                            title="Reject"
-                          >
-                            <ThumbsDown size={16} />
-                          </button>
+                          <>
+                            <button
+                              onClick={() => handleApprove(d._id)}
+                              className="p-2 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded-lg"
+                              title="Approve"
+                            >
+                              <CheckCircle size={16} />
+                            </button>
+                            <button
+                              onClick={() =>
+                                openRejectModal({ kind: "driver", id: d._id })
+                              }
+                              className="p-2 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg"
+                              title="Reject"
+                            >
+                              <ThumbsDown size={16} />
+                            </button>
+                          </>
                         )}
                         <button
                           onClick={() => openDetailModal(d)}
@@ -692,6 +712,12 @@ export default function Drivers() {
 
                 {driver?.approvalStatus === "pending" && (
                   <div className="flex gap-2">
+                    <button
+                      onClick={() => handleApprove(driver._id)}
+                      className="btn-primary flex items-center gap-2"
+                    >
+                      <CheckCircle size={16} /> Approve
+                    </button>
                     <button
                       onClick={() =>
                         openRejectModal({ kind: "driver", id: driver._id })

@@ -187,6 +187,34 @@ export const toggleVendorStatus = createAsyncThunk(
   },
 );
 
+export const approveVendor = createAsyncThunk(
+  "vendors/approve",
+  async (id, { rejectWithValue }) => {
+    try {
+      const response = await api.patch(`/vendors/${id}/approve`);
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to approve vendor.",
+      );
+    }
+  },
+);
+
+export const rejectVendor = createAsyncThunk(
+  "vendors/reject",
+  async ({ id, reason }, { rejectWithValue }) => {
+    try {
+      const response = await api.patch(`/vendors/${id}/reject`, { reason });
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to reject vendor.",
+      );
+    }
+  },
+);
+
 // ==================== VENDOR MATERIALS ====================
 
 // Get vendor materials
@@ -465,6 +493,25 @@ const vendorSlice = createSlice({
       })
       .addCase(toggleVendorStatus.rejected, (state, action) => {
         state.loading = false;
+        state.error = action.payload;
+      })
+      // Approve / Reject
+      .addCase(approveVendor.fulfilled, (state, action) => {
+        const updated = action.payload.data;
+        const index = state.vendors.findIndex((v) => v._id === updated._id);
+        if (index !== -1) state.vendors[index] = updated;
+        state.message = action.payload.message || "Vendor approved.";
+      })
+      .addCase(approveVendor.rejected, (state, action) => {
+        state.error = action.payload;
+      })
+      .addCase(rejectVendor.fulfilled, (state, action) => {
+        const updated = action.payload.data;
+        const index = state.vendors.findIndex((v) => v._id === updated._id);
+        if (index !== -1) state.vendors[index] = updated;
+        state.message = action.payload.message || "Vendor rejected.";
+      })
+      .addCase(rejectVendor.rejected, (state, action) => {
         state.error = action.payload;
       })
       // ==================== VENDOR MATERIALS ====================
