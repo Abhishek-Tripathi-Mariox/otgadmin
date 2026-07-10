@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import usePolling from "../hooks/usePolling";
+import api from "../services/api";
 import {
   Plus,
   Edit2,
@@ -20,11 +21,15 @@ import {
   Package,
   CheckCircle,
   XCircle,
+  ExternalLink,
+  FileText,
+  Eye,
   Map,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import {
   getVendors,
+  getVendor,
   getDeletedVendors,
   createVendor,
   updateVendor,
@@ -45,6 +50,7 @@ export default function Vendors() {
   const navigate = useNavigate();
   const {
     vendors,
+    vendor: currentVendor,
     deletedVendors,
     states,
     loading,
@@ -61,6 +67,9 @@ export default function Vendors() {
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
   const [rejectTargetId, setRejectTargetId] = useState(null);
   const [rejectReason, setRejectReason] = useState("");
+  // Working copy of the vendor's documents (URLs) while editing.
+  const [docForm, setDocForm] = useState({});
+  const [uploadingDoc, setUploadingDoc] = useState(null);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -118,6 +127,40 @@ export default function Vendors() {
   useEffect(() => {
     fetchVendors();
   }, [fetchVendors]);
+
+  // When the fresh single vendor loads, sync the editable document copy.
+  useEffect(() => {
+    if (currentVendor && currentVendor._id === editingId) {
+      setDocForm(currentVendor.documents || {});
+    }
+  }, [currentVendor, editingId]);
+
+  // Upload a document file → S3 → store the returned URL in docForm.
+  const handleUploadDoc = async (key, file) => {
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("File must be 10 MB or smaller.");
+      return;
+    }
+    try {
+      setUploadingDoc(key);
+      const dataUri = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const res = await api.post("/vendors/upload-doc", { file: dataUri });
+      const url = res.data?.data?.url;
+      if (url) setDocForm((prev) => ({ ...prev, [key]: url }));
+    } catch (err) {
+      toast.error(
+        err.response?.data?.message || "Could not upload document.",
+      );
+    } finally {
+      setUploadingDoc(null);
+    }
+  };
 
   // Refresh the list periodically so changes show in near real time.
   usePolling(fetchVendors);
@@ -207,6 +250,7 @@ export default function Vendors() {
         branchName: formData.bankDetails.branchName || undefined,
       },
       status: formData.status,
+      documents: docForm,
     };
 
     try {
@@ -224,6 +268,10 @@ export default function Vendors() {
   const openModal = (vendor = null) => {
     if (vendor) {
       setEditingId(vendor._id);
+      setDocForm(vendor.documents || {});
+      // Fetch the freshest full record (incl. uploaded documents) so the
+      // Documents section always reflects the latest, not a stale list item.
+      dispatch(getVendor(vendor._id));
       setFormData({
         name: vendor.name || "",
         mobile: vendor.mobile || "",
@@ -287,6 +335,7 @@ export default function Vendors() {
   const closeModal = () => {
     setIsModalOpen(false);
     setEditingId(null);
+    setDocForm({});
   };
 
   const handleDelete = async (id) => {
@@ -638,6 +687,13 @@ export default function Vendors() {
                         <XCircle size={18} />
                       </button>
                     )}
+                    <button
+                      onClick={() => openModal(vendor)}
+                      className="text-gray-600 hover:text-gray-900 p-1"
+                      title="View details & documents"
+                    >
+                      <Eye size={18} />
+                    </button>
                     <button
                       onClick={() => handleManageMaterials(vendor._id)}
                       className="text-purple-600 hover:text-purple-800 p-1"
@@ -1140,9 +1196,13 @@ export default function Vendors() {
               {/* Documents & Approval (self-registered vendors) */}
               {editingId &&
                 (() => {
-                  const ev = vendors.find((v) => v._id === editingId);
+                  // Prefer the freshly-fetched single vendor (has documents);
+                  // fall back to the list item.
+                  const ev =
+                    currentVendor && currentVendor._id === editingId
+                      ? currentVendor
+                      : vendors.find((v) => v._id === editingId);
                   if (!ev) return null;
-                  const docs = ev.documents || {};
                   const docList = [
                     { key: "gstCertificate", label: "GST Certificate" },
                     { key: "panCard", label: "PAN Card" },
@@ -1174,31 +1234,77 @@ export default function Vendors() {
                         </span>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-3 mb-3">
-                        {docList.map((d) => (
-                          <div
-                            key={d.key}
-                            className="flex items-center justify-between border rounded-lg p-2"
-                          >
-                            <span className="text-xs text-gray-600">
-                              {d.label}
-                            </span>
-                            {docs[d.key] ? (
-                              <a
-                                href={docs[d.key]}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="text-xs text-blue-600 hover:underline"
-                              >
-                                View
-                              </a>
-                            ) : (
-                              <span className="text-xs text-gray-400">
-                                Not uploaded
-                              </span>
-                            )}
-                          </div>
-                        ))}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                        {docList.map((d) => {
+                          const url = docForm[d.key];
+                          const busy = uploadingDoc === d.key;
+                          return (
+                            <div
+                              key={d.key}
+                              className="border rounded-lg p-3 flex flex-col gap-2"
+                            >
+                              <div className="flex items-center justify-between">
+                                <p className="font-medium text-gray-800 text-sm flex items-center gap-1">
+                                  <FileText size={14} /> {d.label}
+                                </p>
+                                <span
+                                  className={`px-2 py-0.5 rounded-full text-xs ${
+                                    url
+                                      ? "bg-green-100 text-green-700"
+                                      : "bg-gray-100 text-gray-500"
+                                  }`}
+                                >
+                                  {url ? "uploaded" : "not uploaded"}
+                                </span>
+                              </div>
+                              {url ? (
+                                <>
+                                  {/* Image preview (hidden if the doc is a PDF) */}
+                                  <a href={url} target="_blank" rel="noreferrer">
+                                    <img
+                                      src={url}
+                                      alt={d.label}
+                                      className="w-full h-32 object-cover rounded border bg-gray-50"
+                                      onError={(e) => {
+                                        e.currentTarget.style.display = "none";
+                                      }}
+                                    />
+                                  </a>
+                                  <a
+                                    href={url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="text-sm text-blue-600 hover:underline flex items-center gap-1"
+                                  >
+                                    <ExternalLink size={14} /> View document
+                                  </a>
+                                </>
+                              ) : (
+                                <p className="text-xs text-gray-400">
+                                  Not uploaded yet
+                                </p>
+                              )}
+                              {/* Admin can upload / replace the document */}
+                              <label className="text-xs text-orange-600 hover:underline cursor-pointer">
+                                {busy
+                                  ? "Uploading…"
+                                  : url
+                                    ? "Replace document"
+                                    : "Upload document"}
+                                <input
+                                  type="file"
+                                  accept="image/*,application/pdf"
+                                  className="hidden"
+                                  disabled={busy}
+                                  onChange={(e) => {
+                                    handleUploadDoc(d.key, e.target.files?.[0]);
+                                    e.target.value = "";
+                                  }}
+                                />
+                              </label>
+                            </div>
+                          );
+                        })}
                       </div>
 
                       {isRejected && ev.rejectionReason && (

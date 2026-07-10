@@ -1068,10 +1068,10 @@ export default function Materials() {
                   </div>
                 )}
 
-                {/* Transportation Type */}
+                {/* Convenience Fee Type */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Transportation
+                    Convenience Fee
                   </label>
                   <select
                     className="input-field"
@@ -1097,11 +1097,11 @@ export default function Materials() {
                   </select>
                 </div>
 
-                {/* Transportation Charge */}
+                {/* Convenience Fee Charge */}
                 {formData.transportation.type !== "free" && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Transport Charge (₹)
+                      Convenience Fee (₹)
                     </label>
                     <input
                       type="number"
@@ -1186,19 +1186,19 @@ export default function Materials() {
                     {formData.transportation.type === "fixed" && formData.transportation.charge && (
                       <>
                         <div className="flex justify-between">
-                          <span className="text-gray-600">Transportation (Fixed):</span>
+                          <span className="text-gray-600">Convenience Fee (Fixed):</span>
                           <span className="font-medium">₹{parseFloat(formData.transportation.charge).toFixed(2)}</span>
                         </div>
                         {formData.gst && (
                           <div className="flex justify-between">
-                            <span className="text-gray-600">GST on Transport ({formData.gst}%):</span>
+                            <span className="text-gray-600">GST on Convenience Fee ({formData.gst}%):</span>
                             <span className="font-medium text-orange-600">
                               + ₹{(parseFloat(formData.transportation.charge) * parseFloat(formData.gst) / 100).toFixed(2)}
                             </span>
                           </div>
                         )}
                         <div className="flex justify-between">
-                          <span className="text-gray-600 font-semibold">Transport (incl. GST):</span>
+                          <span className="text-gray-600 font-semibold">Convenience Fee (incl. GST):</span>
                           <span className="font-semibold text-orange-600">
                             ₹{(parseFloat(formData.transportation.charge) + (parseFloat(formData.transportation.charge) * parseFloat(formData.gst || "0") / 100)).toFixed(2)}
                           </span>
@@ -1208,19 +1208,19 @@ export default function Materials() {
                     {formData.transportation.type === "per_km" && formData.transportation.charge && (
                       <>
                         <div className="flex justify-between">
-                          <span className="text-gray-600">Transportation (Per KM):</span>
+                          <span className="text-gray-600">Convenience Fee (Per KM):</span>
                           <span className="font-medium">₹{parseFloat(formData.transportation.charge).toFixed(2)}/km</span>
                         </div>
                         {formData.gst && (
                           <div className="flex justify-between">
-                            <span className="text-gray-600">GST on Transport ({formData.gst}%):</span>
+                            <span className="text-gray-600">GST on Convenience Fee ({formData.gst}%):</span>
                             <span className="font-medium text-orange-600">
                               + ₹{(parseFloat(formData.transportation.charge) * parseFloat(formData.gst) / 100).toFixed(2)}/km
                             </span>
                           </div>
                         )}
                         <div className="flex justify-between">
-                          <span className="text-gray-600 font-semibold">Transport (incl. GST):</span>
+                          <span className="text-gray-600 font-semibold">Convenience Fee (incl. GST):</span>
                           <span className="font-semibold text-orange-600">
                             ₹{(parseFloat(formData.transportation.charge) + (parseFloat(formData.transportation.charge) * parseFloat(formData.gst || "0") / 100)).toFixed(2)}/km
                           </span>
@@ -1230,19 +1230,19 @@ export default function Materials() {
                     {formData.transportation.type === "per_unit" && formData.transportation.charge && (
                       <>
                         <div className="flex justify-between">
-                          <span className="text-gray-600">Transportation (Per Unit):</span>
+                          <span className="text-gray-600">Convenience Fee (Per Unit):</span>
                           <span className="font-medium">₹{parseFloat(formData.transportation.charge).toFixed(2)}/unit</span>
                         </div>
                         {formData.gst && (
                           <div className="flex justify-between">
-                            <span className="text-gray-600">GST on Transport ({formData.gst}%):</span>
+                            <span className="text-gray-600">GST on Convenience Fee ({formData.gst}%):</span>
                             <span className="font-medium text-orange-600">
                               + ₹{(parseFloat(formData.transportation.charge) * parseFloat(formData.gst) / 100).toFixed(2)}/unit
                             </span>
                           </div>
                         )}
                         <div className="flex justify-between">
-                          <span className="text-gray-600 font-semibold">Transport (incl. GST):</span>
+                          <span className="text-gray-600 font-semibold">Convenience Fee (incl. GST):</span>
                           <span className="font-semibold text-orange-600">
                             ₹{(parseFloat(formData.transportation.charge) + (parseFloat(formData.transportation.charge) * parseFloat(formData.gst || "0") / 100)).toFixed(2)}/unit
                           </span>
