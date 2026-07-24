@@ -9,6 +9,7 @@ import {
 import L from "leaflet";
 import { MapPin, Crosshair, X } from "lucide-react";
 import "leaflet/dist/leaflet.css";
+import api from "../services/api";
 
 // Fix for default marker icon in React-Leaflet
 delete L.Icon.Default.prototype._getIconUrl;
@@ -108,7 +109,8 @@ export default function LocationPicker({
     }
   };
 
-  // Search for location using Nominatim (OpenStreetMap geocoding - free)
+  // Search for a location via the backend geocode proxy (Google Places if
+  // the admin has configured it, else free OpenStreetMap Nominatim)
   const searchLocation = async (query) => {
     if (!query.trim()) {
       setSearchResults([]);
@@ -117,13 +119,10 @@ export default function LocationPicker({
 
     setSearching(true);
     try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-          query,
-        )}&limit=5&countrycodes=in`,
-      );
-      const data = await response.json();
-      setSearchResults(data);
+      const response = await api.get("/geocode/search", {
+        params: { q: query },
+      });
+      setSearchResults(response.data);
     } catch (error) {
       console.error("Search error:", error);
     }
@@ -157,11 +156,12 @@ export default function LocationPicker({
 
   const handleConfirm = () => {
     if (position) {
-      // Reverse geocode to get address details
-      fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${position.lat}&lon=${position.lng}&addressdetails=1`,
-      )
-        .then((res) => res.json())
+      // Reverse geocode via the backend proxy to get address details
+      api
+        .get("/geocode/reverse", {
+          params: { lat: position.lat, lon: position.lng },
+        })
+        .then((res) => res.data)
         .then((data) => {
           const address = data.address || {};
 
