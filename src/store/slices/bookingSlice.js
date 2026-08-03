@@ -48,11 +48,12 @@ export const getBooking = createAsyncThunk(
 // Update booking status
 export const updateBookingStatus = createAsyncThunk(
   "bookings/updateStatus",
-  async ({ id, status, paymentStatus }, { rejectWithValue }) => {
+  async ({ id, status, paymentStatus, note }, { rejectWithValue }) => {
     try {
       const body = {};
       if (status) body.status = status;
       if (paymentStatus) body.paymentStatus = paymentStatus;
+      if (note) body.note = note;
       const response = await api.patch(`/bookings/${id}/status`, body);
       return response.data;
     } catch (error) {

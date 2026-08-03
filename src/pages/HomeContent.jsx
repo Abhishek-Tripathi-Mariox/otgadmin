@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { Megaphone, Type, AlignLeft, MousePointerClick, Save, Info } from "lucide-react";
+import { Megaphone, Type, AlignLeft, MousePointerClick, Save, Info, Building2 } from "lucide-react";
 import toast from "react-hot-toast";
 import {
   getAppSettings,
@@ -15,6 +15,19 @@ const DEFAULTS = {
   buttonText: "Get Bulk Quote",
 };
 
+const COMPANY_DEFAULTS = {
+  name: "",
+  gstin: "",
+  pan: "",
+  address: "",
+  city: "",
+  state: "",
+  pincode: "",
+  bankAccountNumber: "",
+  bankIfsc: "",
+  bankName: "",
+};
+
 export default function HomeContent() {
   const dispatch = useDispatch();
   const { settings, loading, saving, error, message } = useSelector(
@@ -22,6 +35,7 @@ export default function HomeContent() {
   );
 
   const [form, setForm] = useState(DEFAULTS);
+  const [companyForm, setCompanyForm] = useState(COMPANY_DEFAULTS);
 
   useEffect(() => {
     dispatch(getAppSettings());
@@ -34,6 +48,9 @@ export default function HomeContent() {
         subtitle: settings.bulkBanner.subtitle ?? DEFAULTS.subtitle,
         buttonText: settings.bulkBanner.buttonText ?? DEFAULTS.buttonText,
       });
+    }
+    if (settings?.companyProfile) {
+      setCompanyForm({ ...COMPANY_DEFAULTS, ...settings.companyProfile });
     }
   }, [settings]);
 
@@ -58,6 +75,14 @@ export default function HomeContent() {
       return;
     }
     await dispatch(saveAppSettings({ bulkBanner: form }));
+  };
+
+  const handleSaveCompany = async () => {
+    if (!companyForm.name.trim()) {
+      toast.error("Company name cannot be empty");
+      return;
+    }
+    await dispatch(saveAppSettings({ companyProfile: companyForm }));
   };
 
   return (
@@ -157,6 +182,138 @@ export default function HomeContent() {
           </div>
         </div>
       )}
+
+      {!loading && (
+        <div className="bg-white border rounded-xl p-6 space-y-5">
+          <div className="flex items-center gap-2 text-gray-900 font-semibold">
+            <Building2 size={18} className="text-orange-600" />
+            Company Profile
+          </div>
+          <p className="text-xs text-gray-500 -mt-3">
+            OTG's own legal-entity details — used as the "buyer" on the
+            vendor-to-OTG back-to-back invoice generated for every delivered,
+            paid order.
+          </p>
+
+          <div className="grid grid-cols-2 gap-4">
+            <CompanyField label="Company Name">
+              <input
+                className="input-field"
+                value={companyForm.name}
+                onChange={(e) =>
+                  setCompanyForm({ ...companyForm, name: e.target.value })
+                }
+              />
+            </CompanyField>
+            <CompanyField label="GSTIN">
+              <input
+                className="input-field"
+                value={companyForm.gstin}
+                onChange={(e) =>
+                  setCompanyForm({ ...companyForm, gstin: e.target.value })
+                }
+              />
+            </CompanyField>
+            <CompanyField label="PAN">
+              <input
+                className="input-field"
+                value={companyForm.pan}
+                onChange={(e) =>
+                  setCompanyForm({ ...companyForm, pan: e.target.value })
+                }
+              />
+            </CompanyField>
+            <CompanyField label="Address">
+              <input
+                className="input-field"
+                value={companyForm.address}
+                onChange={(e) =>
+                  setCompanyForm({ ...companyForm, address: e.target.value })
+                }
+              />
+            </CompanyField>
+            <CompanyField label="City">
+              <input
+                className="input-field"
+                value={companyForm.city}
+                onChange={(e) =>
+                  setCompanyForm({ ...companyForm, city: e.target.value })
+                }
+              />
+            </CompanyField>
+            <CompanyField label="State">
+              <input
+                className="input-field"
+                value={companyForm.state}
+                onChange={(e) =>
+                  setCompanyForm({ ...companyForm, state: e.target.value })
+                }
+              />
+            </CompanyField>
+            <CompanyField label="Pincode">
+              <input
+                className="input-field"
+                value={companyForm.pincode}
+                onChange={(e) =>
+                  setCompanyForm({ ...companyForm, pincode: e.target.value })
+                }
+              />
+            </CompanyField>
+            <CompanyField label="Bank Name">
+              <input
+                className="input-field"
+                value={companyForm.bankName}
+                onChange={(e) =>
+                  setCompanyForm({ ...companyForm, bankName: e.target.value })
+                }
+              />
+            </CompanyField>
+            <CompanyField label="Bank A/c Number">
+              <input
+                className="input-field"
+                value={companyForm.bankAccountNumber}
+                onChange={(e) =>
+                  setCompanyForm({
+                    ...companyForm,
+                    bankAccountNumber: e.target.value,
+                  })
+                }
+              />
+            </CompanyField>
+            <CompanyField label="IFSC Code">
+              <input
+                className="input-field"
+                value={companyForm.bankIfsc}
+                onChange={(e) =>
+                  setCompanyForm({ ...companyForm, bankIfsc: e.target.value })
+                }
+              />
+            </CompanyField>
+          </div>
+
+          <div className="flex justify-end pt-2 border-t">
+            <button
+              onClick={handleSaveCompany}
+              disabled={saving}
+              className="btn-primary flex items-center gap-2"
+            >
+              <Save size={16} />
+              {saving ? "Saving..." : "Save Company Profile"}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CompanyField({ label, children }) {
+  return (
+    <div>
+      <label className="text-xs font-medium text-gray-700 mb-1 block">
+        {label}
+      </label>
+      {children}
     </div>
   );
 }

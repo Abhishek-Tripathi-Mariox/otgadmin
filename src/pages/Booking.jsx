@@ -31,6 +31,7 @@ import {
 } from "../store/slices/bookingSlice";
 import { getVendors } from "../store/slices/vendorSlice";
 import { getDrivers } from "../store/slices/driverSlice";
+import api from "../services/api";
 
 const STATUS_OPTIONS = [
   {
@@ -52,6 +53,11 @@ const STATUS_OPTIONS = [
     value: "qc_approved",
     label: "QC Approved",
     color: "bg-teal-100 text-teal-700",
+  },
+  {
+    value: "qc_rejected",
+    label: "QC Rejected",
+    color: "bg-red-100 text-red-700",
   },
   {
     value: "packed",
@@ -129,6 +135,10 @@ export default function Bookings() {
   const [searchParams] = useSearchParams();
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState(null);
+  const [qcRejectModal, setQcRejectModal] = useState(false);
+  const [qcRejectReason, setQcRejectReason] = useState("");
+  const [invoices, setInvoices] = useState([]);
+  const [generatingInvoices, setGeneratingInvoices] = useState(false);
   const [vendorPick, setVendorPick] = useState("");
   const [allocating, setAllocating] = useState(false);
   const [driverPick, setDriverPick] = useState("");
@@ -173,6 +183,50 @@ export default function Bookings() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [driverPick]);
 
+  // Load any already-generated invoices whenever a different booking is opened.
+  useEffect(() => {
+    if (!selectedBooking?._id) {
+      setInvoices([]);
+      return;
+    }
+    api
+      .get(`/bookings/${selectedBooking._id}/invoices`)
+      .then((res) => setInvoices(res.data?.data || []))
+      .catch(() => setInvoices([]));
+  }, [selectedBooking?._id]);
+
+  const handleGenerateInvoices = async () => {
+    if (!selectedBooking?._id) return;
+    try {
+      setGeneratingInvoices(true);
+      const res = await api.post(
+        `/bookings/${selectedBooking._id}/invoices/generate`,
+      );
+      setInvoices(res.data?.data || []);
+      toast.success("Invoices generated.");
+    } catch (err) {
+      toast.error(
+        err?.response?.data?.message || "Could not generate invoices.",
+      );
+    } finally {
+      setGeneratingInvoices(false);
+    }
+  };
+
+  const handleViewInvoice = async (invoiceId) => {
+    try {
+      const res = await api.get(`/invoices/${invoiceId}/html`, {
+        responseType: "text",
+        transformResponse: (data) => data,
+      });
+      const blob = new Blob([res.data], { type: "text/html" });
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank");
+    } catch {
+      toast.error("Could not open invoice.");
+    }
+  };
+
   const handleAllocateVendor = async () => {
     if (!selectedBooking?._id) {
       toast.error("Open a saved booking to allocate a vendor.");
@@ -204,6 +258,33 @@ export default function Bookings() {
         }),
       ).unwrap();
       if (res?.data) setSelectedBooking(res.data);
+    } catch {
+      // toast handled via redux error
+    }
+  };
+
+  const openRejectQc = () => {
+    setQcRejectReason("");
+    setQcRejectModal(true);
+  };
+
+  const submitRejectQc = async () => {
+    if (!selectedBooking?._id) return;
+    if (!qcRejectReason.trim()) {
+      toast.error("A reason is required to reject QC.");
+      return;
+    }
+    try {
+      const res = await dispatch(
+        updateBookingStatus({
+          id: selectedBooking._id,
+          status: "qc_rejected",
+          note: qcRejectReason.trim(),
+        }),
+      ).unwrap();
+      if (res?.data) setSelectedBooking(res.data);
+      setQcRejectModal(false);
+      setQcRejectReason("");
     } catch {
       // toast handled via redux error
     }
@@ -278,6 +359,17 @@ export default function Bookings() {
   // Refresh orders periodically so new/pending orders appear in near real time.
   // Poll every 10s so order status changes reflect near real-time (client ask).
   usePolling(fetchBookings, 10000);
+
+  // Keep an OPEN detail modal in sync with the polled list — otherwise the
+  // list refreshes every 10s but a booking's open modal stays frozen at
+  // whatever it looked like when it was clicked, until manually reopened.
+  useEffect(() => {
+    if (!selectedBooking?._id) return;
+    const fresh = apiBookings.find((b) => b._id === selectedBooking._id);
+    if (fresh && fresh.updatedAt !== selectedBooking.updatedAt) {
+      setSelectedBooking(fresh);
+    }
+  }, [apiBookings, selectedBooking]);
 
   // Handle toast messages
   useEffect(() => {
@@ -686,6 +778,60 @@ export default function Bookings() {
                 </div>
               </div>
 
+              {/* Invoices — only generatable once delivered + paid */}
+              {selectedBooking.status === "delivered" &&
+                selectedBooking.paymentStatus === "completed" && (
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-sm font-semibold text-gray-700">
+                        Invoices
+                      </h3>
+                      <button
+                        onClick={handleGenerateInvoices}
+                        disabled={generatingInvoices}
+                        className="btn-primary text-sm"
+                      >
+                        {generatingInvoices
+                          ? "Generating..."
+                          : invoices.length > 0
+                            ? "Regenerate"
+                            : "Generate Invoice"}
+                      </button>
+                    </div>
+                    {invoices.length === 0 ? (
+                      <p className="text-xs text-gray-500">
+                        No invoices generated yet.
+                      </p>
+                    ) : (
+                      <div className="flex flex-col gap-2">
+                        {invoices.map((inv) => (
+                          <div
+                            key={inv._id}
+                            className="flex items-center justify-between text-sm bg-white rounded-lg border px-3 py-2"
+                          >
+                            <div>
+                              <span className="font-medium">
+                                {inv.invoiceNumber}
+                              </span>
+                              <span className="text-xs text-gray-500 ml-2">
+                                {inv.type === "vendor_to_otg"
+                                  ? "Vendor → OTG"
+                                  : "Vendor → Customer"}
+                              </span>
+                            </div>
+                            <button
+                              onClick={() => handleViewInvoice(inv._id)}
+                              className="text-orange-600 text-xs font-medium hover:underline"
+                            >
+                              View
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
               {/* Material Details */}
               <div className="bg-gray-50 rounded-lg p-4">
                 <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
@@ -878,14 +1024,36 @@ export default function Bookings() {
                         <ShieldCheck size={16} /> Quality Check
                       </h3>
                       {selectedBooking.status === "qc_pending" && (
-                        <button
-                          onClick={handleApproveQc}
-                          className="btn-primary text-sm flex items-center gap-1"
-                        >
-                          <CheckCircle size={14} /> Approve QC
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={openRejectQc}
+                            className="btn-secondary text-sm flex items-center gap-1 text-red-600"
+                          >
+                            <X size={14} /> Reject QC
+                          </button>
+                          <button
+                            onClick={handleApproveQc}
+                            className="btn-primary text-sm flex items-center gap-1"
+                          >
+                            <CheckCircle size={14} /> Approve QC
+                          </button>
+                        </div>
                       )}
                     </div>
+
+                    {selectedBooking.status === "qc_rejected" && (
+                      <div className="mb-3 bg-red-50 border border-red-200 rounded-lg p-3">
+                        <p className="text-xs font-semibold text-red-700">
+                          Rejected
+                        </p>
+                        <p className="text-xs text-red-600 mt-0.5">
+                          {[...(selectedBooking.statusHistory || [])]
+                            .reverse()
+                            .find((h) => h.status === "qc_rejected")?.note ||
+                            "No reason provided."}
+                        </p>
+                      </div>
+                    )}
 
                     {selectedBooking.qc.materialPhotos?.length > 0 && (
                       <div className="mb-3">
@@ -1172,6 +1340,43 @@ export default function Bookings() {
                 className="btn-secondary"
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {qcRejectModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl w-full max-w-md p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-bold">Reject QC</h2>
+              <button
+                onClick={() => setQcRejectModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X size={22} />
+              </button>
+            </div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Reason (required)
+            </label>
+            <textarea
+              className="input-field"
+              rows={4}
+              value={qcRejectReason}
+              onChange={(e) => setQcRejectReason(e.target.value)}
+              placeholder="Why is this QC submission being rejected?"
+            />
+            <div className="flex justify-end gap-3 mt-4">
+              <button
+                onClick={() => setQcRejectModal(false)}
+                className="btn-secondary"
+              >
+                Cancel
+              </button>
+              <button onClick={submitRejectQc} className="btn-primary">
+                Reject QC
               </button>
             </div>
           </div>
