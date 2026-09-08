@@ -40,6 +40,7 @@ import { useState, useEffect } from "react";
 import { useDispatch } from "react-redux";
 import { logout } from "../../store/slices/authSlice";
 import usePermission from "../../hooks/usePermission";
+import NotificationBell from "../NotificationBell";
 
 export default function AdminLayout({ children }) {
   const location = useLocation();
@@ -373,15 +374,21 @@ export default function AdminLayout({ children }) {
 
       {/* Main Content */}
       <div className="flex flex-col flex-1 overflow-hidden min-w-0">
-        {/* Mobile Header with hamburger */}
-        <div className="flex items-center h-14 px-4 border-b border-gray-200 bg-white md:hidden">
-          <button
-            onClick={() => setMobileMenuOpen(true)}
-            className="p-2 rounded-lg hover:bg-gray-100"
-          >
-            <Menu size={22} className="text-gray-700" />
-          </button>
-          <span className="ml-3 text-lg font-semibold text-gray-900">OTG Admin</span>
+        {/* Top bar — hamburger only shows on mobile, bell shows on every
+            screen size so notifications are visible regardless of viewport. */}
+        <div className="flex items-center justify-between h-14 px-4 border-b border-gray-200 bg-white">
+          <div className="flex items-center">
+            <button
+              onClick={() => setMobileMenuOpen(true)}
+              className="p-2 -ml-2 rounded-lg hover:bg-gray-100 md:hidden"
+            >
+              <Menu size={22} className="text-gray-700" />
+            </button>
+            <span className="ml-3 text-lg font-semibold text-gray-900 md:hidden">
+              OTG Admin
+            </span>
+          </div>
+          <NotificationBell />
         </div>
         <main className="flex-1 overflow-auto">
           <div className="p-4 md:p-8">{children || <Outlet />}</div>

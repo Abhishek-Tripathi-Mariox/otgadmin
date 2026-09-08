@@ -23,6 +23,7 @@ import {
 import toast from "react-hot-toast";
 import {
   getBookings,
+  getBookingStatusCounts,
   updateBookingStatus,
   allocateVendor,
   allocateDriver,
@@ -126,9 +127,14 @@ const getPaymentConfig = (status) =>
 
 export default function Bookings() {
   const dispatch = useDispatch();
-  const { bookings: apiBookings, loading, error, message, pagination } = useSelector(
-    (state) => state.bookings,
-  );
+  const {
+    bookings: apiBookings,
+    statusCounts,
+    loading,
+    error,
+    message,
+    pagination,
+  } = useSelector((state) => state.bookings);
   const { vendors } = useSelector((state) => state.vendors);
   const { drivers } = useSelector((state) => state.drivers);
 
@@ -360,6 +366,19 @@ export default function Bookings() {
   // Poll every 10s so order status changes reflect near real-time (client ask).
   usePolling(fetchBookings, 10000);
 
+  // Stat-card counts come from their own unfiltered endpoint — deliberately
+  // independent of `fetchBookings`/`filters.status` above, so clicking a
+  // status card (which filters the list) can never zero out the others.
+  const fetchStatusCounts = useCallback(() => {
+    dispatch(getBookingStatusCounts());
+  }, [dispatch]);
+
+  useEffect(() => {
+    fetchStatusCounts();
+  }, [fetchStatusCounts]);
+
+  usePolling(fetchStatusCounts, 10000);
+
   // Keep an OPEN detail modal in sync with the polled list — otherwise the
   // list refreshes every 10s but a booking's open modal stays frozen at
   // whatever it looked like when it was clicked, until manually reopened.
@@ -444,7 +463,7 @@ export default function Bookings() {
       {/* STATS CARDS */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
         {STATUS_OPTIONS.map((s) => {
-          const count = allBookings.filter((b) => b.status === s.value).length;
+          const count = statusCounts?.[s.value] || 0;
           return (
             <button
               key={s.value}
@@ -816,7 +835,7 @@ export default function Bookings() {
                               <span className="text-xs text-gray-500 ml-2">
                                 {inv.type === "vendor_to_otg"
                                   ? "Vendor → OTG"
-                                  : "Vendor → Customer"}
+                                  : "OTG → Customer"}
                               </span>
                             </div>
                             <button

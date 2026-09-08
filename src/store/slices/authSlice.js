@@ -29,6 +29,13 @@ export const login = createAsyncThunk(
   },
 );
 
+// Logout — async so it can invalidate the session server-side (see
+// authService.logout) before clearing local state; dispatch(logout()) at
+// call sites is unchanged, still a thunk dispatch either way.
+export const logout = createAsyncThunk("auth/logout", async () => {
+  await authService.logout();
+});
+
 // Forgot Password
 export const forgotPassword = createAsyncThunk(
   "auth/forgotPassword",
@@ -97,15 +104,6 @@ const authSlice = createSlice({
   name: "auth",
   initialState,
   reducers: {
-    logout: (state) => {
-      localStorage.removeItem("token");
-      localStorage.removeItem("admin");
-      state.admin = null;
-      state.token = null;
-      state.isAuthenticated = false;
-      state.error = null;
-      state.message = null;
-    },
     clearError: (state) => {
       state.error = null;
     },
@@ -115,6 +113,15 @@ const authSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
+      // Logout — authService.logout() never throws (it swallows the API
+      // call's own failure), so .fulfilled is the only outcome to handle.
+      .addCase(logout.fulfilled, (state) => {
+        state.admin = null;
+        state.token = null;
+        state.isAuthenticated = false;
+        state.error = null;
+        state.message = null;
+      })
       // Login
       .addCase(login.pending, (state) => {
         state.loading = true;
@@ -191,5 +198,5 @@ const authSlice = createSlice({
   },
 });
 
-export const { logout, clearError, clearMessage } = authSlice.actions;
+export const { clearError, clearMessage } = authSlice.actions;
 export default authSlice.reducer;

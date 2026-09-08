@@ -89,10 +89,15 @@ export default function Materials() {
     toDate: "",
   });
 
-  // Fetch initial data
+  // Fetch initial data. Both endpoints default to `limit=10` server-side
+  // (meant for their own paginated list pages) — this form needs the FULL
+  // set to populate the Category/Sub-Category dropdowns, or categories/
+  // subcategories past the 10th most-recently-created one silently can't be
+  // selected here (this is what broke the RCC subcategory: it simply wasn't
+  // in the unpaginated first page of results).
   useEffect(() => {
-    dispatch(getCategories());
-    dispatch(getSubCategories());
+    dispatch(getCategories({ limit: 1000 }));
+    dispatch(getSubCategories({ limit: 1000 }));
     dispatch(getUnits());
   }, [dispatch]);
 

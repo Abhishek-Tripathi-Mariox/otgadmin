@@ -51,6 +51,14 @@ body {
   }
 }
 
+/* Suppress the browser's own native password-reveal/clear icon (e.g. Edge's
+   ::-ms-reveal) so it doesn't render on top of the app's custom eye-icon
+   toggle in Input.jsx, which otherwise looks like two overlapping icons. */
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear {
+  display: none;
+}
+
 /* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 6px;

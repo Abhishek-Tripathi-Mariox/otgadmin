@@ -80,6 +80,7 @@ export default function Quotations() {
   });
   const [savingResponse, setSavingResponse] = useState(false);
   const [vendorPick, setVendorPick] = useState("");
+  const [vendorRatePick, setVendorRatePick] = useState("");
   const [assigningVendor, setAssigningVendor] = useState(false);
   const [uploadingPdf, setUploadingPdf] = useState(false);
 
@@ -91,6 +92,9 @@ export default function Quotations() {
   // Sync local vendor pick when the detail modal opens / changes
   useEffect(() => {
     setVendorPick(detail?.assignedVendor?._id || "");
+    setVendorRatePick(
+      detail?.vendorRate != null ? String(detail.vendorRate) : "",
+    );
   }, [detail?._id]);
 
   const handleAssignVendor = async () => {
@@ -101,6 +105,7 @@ export default function Quotations() {
         assignVendorToQuotation({
           id: detail._id,
           vendorId: vendorPick || null,
+          vendorRate: vendorRatePick === "" ? null : Number(vendorRatePick),
         }),
       ).unwrap();
       if (res?.data) setDetail(res.data);
@@ -538,14 +543,16 @@ export default function Quotations() {
                       >
                         <Eye size={16} /> Details
                       </button>
-                      {q.status !== "accepted" && q.status !== "rejected" && (
+                      {q.status !== "accepted" && (
                         <button
                           onClick={() => openRespond(q)}
                           className="flex items-center gap-1 px-3 py-1.5 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 text-sm"
                           title="Send Quote"
                         >
                           <Send size={16} />{" "}
-                          {q.status === "quoted" ? "Update" : "Send Quote"}
+                          {q.status === "quoted" || q.status === "rejected"
+                            ? "Re-quote"
+                            : "Send Quote"}
                         </button>
                       )}
                       {q.status === "quoted" && (
@@ -785,6 +792,32 @@ export default function Quotations() {
                     value={new Date(detail.assignedAt).toLocaleString()}
                   />
                 )}
+                {detail.assignedVendor && (
+                  <Row
+                    label="Vendor Rate"
+                    value={
+                      detail.vendorRate != null
+                        ? `₹ ${Number(detail.vendorRate).toLocaleString("en-IN")}`
+                        : "Not set"
+                    }
+                  />
+                )}
+                {detail.assignedVendor && detail.vendorRate != null && (
+                  <Row
+                    label="PO Status"
+                    value={
+                      detail.vendorPoStatus === "accepted"
+                        ? `Accepted${
+                            detail.vendorPoAcceptedAt
+                              ? ` (${new Date(
+                                  detail.vendorPoAcceptedAt,
+                                ).toLocaleString()})`
+                              : ""
+                          }`
+                        : "Pending vendor acceptance"
+                    }
+                  />
+                )}
 
                 <div className="mt-3 pt-3 border-t border-gray-200">
                   <label className="block text-xs text-gray-500 mb-1">
@@ -804,11 +837,30 @@ export default function Quotations() {
                         </option>
                       ))}
                     </select>
+                  </div>
+                  <label className="block text-xs text-gray-500 mt-2 mb-1">
+                    Vendor rate (₹) — the price agreed with this vendor, shown
+                    to them as their PO (not the customer's price)
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      className="input-field flex-1 text-sm"
+                      placeholder="e.g. 45000"
+                      value={vendorRatePick}
+                      onChange={(e) => setVendorRatePick(e.target.value)}
+                    />
                     <button
                       onClick={handleAssignVendor}
                       disabled={
                         assigningVendor ||
-                        vendorPick === (detail.assignedVendor?._id || "")
+                        (vendorPick === (detail.assignedVendor?._id || "") &&
+                          vendorRatePick ===
+                            (detail.vendorRate != null
+                              ? String(detail.vendorRate)
+                              : ""))
                       }
                       className="btn-primary text-sm"
                     >
@@ -816,7 +868,8 @@ export default function Quotations() {
                     </button>
                   </div>
                   <p className="text-xs text-gray-400 mt-2">
-                    The assigned vendor will see this quotation in their app.
+                    The assigned vendor will see this quotation (as a
+                    Purchase Order, at their own rate) in their app.
                   </p>
                 </div>
               </Section>

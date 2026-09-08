@@ -13,6 +13,10 @@ const initialState = {
     total: 0,
     totalPages: 0,
   },
+  // Per-status counts for the Bookings page's stat cards — sourced from a
+  // dedicated unfiltered endpoint, deliberately NOT derived from `bookings`
+  // above (which narrows to whatever status filter is active).
+  statusCounts: {},
 };
 
 // Get all bookings
@@ -108,6 +112,21 @@ export const deleteBooking = createAsyncThunk(
     } catch (error) {
       return rejectWithValue(
         error.response?.data?.message || "Failed to delete booking.",
+      );
+    }
+  },
+);
+
+// Per-status counts, unfiltered — see initialState.statusCounts.
+export const getBookingStatusCounts = createAsyncThunk(
+  "bookings/getStatusCounts",
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await api.get("/bookings/stats/status-counts");
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to fetch booking status counts.",
       );
     }
   },
@@ -226,6 +245,10 @@ const bookingSlice = createSlice({
         );
         state.message =
           action.payload.message || "Booking deleted successfully.";
+      })
+      // Status counts (stat cards)
+      .addCase(getBookingStatusCounts.fulfilled, (state, action) => {
+        state.statusCounts = action.payload.data || action.payload || {};
       })
       .addCase(deleteBooking.rejected, (state, action) => {
         state.loading = false;

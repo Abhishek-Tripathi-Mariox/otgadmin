@@ -37,8 +37,16 @@ export const authService = {
     return response.data;
   },
 
-  // Logout
-  logout: () => {
+  // Logout — clears the session server-side too (Admin/Staff.currentSessionId)
+  // so this token (and any other still-outstanding one for the account) is
+  // actually invalidated, not just forgotten locally.
+  logout: async () => {
+    try {
+      await api.post("/auth/logout");
+    } catch {
+      // Token may already be invalid/expired — clearing local state below
+      // is what actually matters for the user-facing "log out" action.
+    }
     localStorage.removeItem("token");
     localStorage.removeItem("admin");
   },

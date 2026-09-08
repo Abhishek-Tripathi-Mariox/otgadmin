@@ -102,10 +102,11 @@ export const updateQuotationStatus = createAsyncThunk(
 
 export const assignVendorToQuotation = createAsyncThunk(
   "quotations/assignVendor",
-  async ({ id, vendorId }, { rejectWithValue }) => {
+  async ({ id, vendorId, vendorRate }, { rejectWithValue }) => {
     try {
       const response = await api.patch(`/quotations/${id}/assign-vendor`, {
         vendorId,
+        vendorRate,
       });
       return response.data;
     } catch (error) {
