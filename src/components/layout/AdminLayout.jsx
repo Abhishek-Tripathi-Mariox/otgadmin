@@ -34,13 +34,17 @@ import {
   Headphones,
   Star,
   HelpCircle,
+  Wallet2,
 } from "lucide-react";
 import { Link, useLocation, Outlet, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { logout } from "../../store/slices/authSlice";
 import usePermission from "../../hooks/usePermission";
+import usePolling from "../../hooks/usePolling";
 import NotificationBell from "../NotificationBell";
+import { getQuotationCounts } from "../../store/slices/quotationSlice";
+import { getBookingStatusCounts } from "../../store/slices/bookingSlice";
 
 export default function AdminLayout({ children }) {
   const location = useLocation();
@@ -49,6 +53,31 @@ export default function AdminLayout({ children }) {
   const { can, isSuperAdmin } = usePermission();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [openMenus, setOpenMenus] = useState({});
+
+  // Sidebar badge counts (A2/B10) — "new" quotations awaiting an OTG quote,
+  // and "pending" bookings awaiting admin action. Reuses the same counts
+  // endpoints the Quotations/Bookings pages themselves already call, so
+  // this adds no new backend endpoints, just a background poll here too.
+  const quotationCounts = useSelector((s) => s.quotations.counts);
+  const bookingStatusCounts = useSelector((s) => s.bookings.statusCounts);
+  const canSeeQuotationBadge = can("bookings", "view");
+  const canSeeBookingBadge = can("bookings", "view");
+
+  useEffect(() => {
+    if (canSeeQuotationBadge) dispatch(getQuotationCounts());
+    if (canSeeBookingBadge) dispatch(getBookingStatusCounts());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dispatch]);
+
+  usePolling(() => {
+    if (canSeeQuotationBadge) dispatch(getQuotationCounts());
+    if (canSeeBookingBadge) dispatch(getBookingStatusCounts());
+  }, 30000);
+
+  const badgeCounts = {
+    "/quotations": quotationCounts?.new || 0,
+    "/bookings": bookingStatusCounts?.pending || 0,
+  };
 
   // Accordion behaviour: opening one expandable group collapses the others,
   // so the sidebar stays compact. Clicking an open group closes it.
@@ -65,6 +94,7 @@ export default function AdminLayout({ children }) {
         { icon: Layers, label: "Bookings", path: "/bookings", perm: "bookings" },
         { icon: ClipboardList, label: "Quotations", path: "/quotations", perm: "bookings" },
         { icon: CreditCard, label: "Transactions", path: "/transactions", perm: "transactions" },
+        { icon: Wallet2, label: "COD Reconciliation", path: "/cod-reconciliation", perm: "transactions" },
       ],
     },
     {
@@ -327,28 +357,42 @@ export default function AdminLayout({ children }) {
 
                   // Simple menu item
                   const active = isActive(item.path);
+                  const badgeCount = badgeCounts[item.path] || 0;
                   return (
                     <Link
                       key={item.path}
                       to={item.path}
                       onClick={() => setMobileMenuOpen(false)}
-                      className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
+                      className={`flex items-center justify-between gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
                         active
                           ? "bg-orange-500 text-white"
                           : "text-gray-700 hover:bg-gray-100"
                       }`}
                     >
-                      <Icon
-                        size={20}
-                        className={active ? "text-white" : "text-gray-500"}
-                      />
-                      <span
-                        className={`text-sm ${
-                          active ? "font-semibold" : "font-normal"
-                        }`}
-                      >
-                        {item.label}
-                      </span>
+                      <div className="flex items-center gap-3">
+                        <Icon
+                          size={20}
+                          className={active ? "text-white" : "text-gray-500"}
+                        />
+                        <span
+                          className={`text-sm ${
+                            active ? "font-semibold" : "font-normal"
+                          }`}
+                        >
+                          {item.label}
+                        </span>
+                      </div>
+                      {badgeCount > 0 && (
+                        <span
+                          className={`min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-bold flex items-center justify-center ${
+                            active
+                              ? "bg-white text-orange-600"
+                              : "bg-orange-500 text-white"
+                          }`}
+                        >
+                          {badgeCount > 99 ? "99+" : badgeCount}
+                        </span>
+                      )}
                     </Link>
                   );
                 })}

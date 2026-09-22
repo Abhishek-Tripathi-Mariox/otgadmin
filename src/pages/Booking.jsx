@@ -23,6 +23,7 @@ import {
 import toast from "react-hot-toast";
 import {
   getBookings,
+  getBooking,
   getBookingStatusCounts,
   updateBookingStatus,
   allocateVendor,
@@ -81,6 +82,11 @@ const STATUS_OPTIONS = [
     color: "bg-green-100 text-green-700",
   },
   { value: "cancelled", label: "Cancelled", color: "bg-red-100 text-red-700" },
+  {
+    value: "vendor_rejected",
+    label: "Vendor Rejected — Needs Action",
+    color: "bg-red-100 text-red-700",
+  },
 ];
 
 // Legacy/alias statuses mapped onto the canonical ones above.
@@ -138,7 +144,7 @@ export default function Bookings() {
   const { vendors } = useSelector((state) => state.vendors);
   const { drivers } = useSelector((state) => state.drivers);
 
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [qcRejectModal, setQcRejectModal] = useState(false);
@@ -168,6 +174,31 @@ export default function Bookings() {
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
+
+  // Deep-link support: NotificationBell navigates here with ?open=<id> for a
+  // booking-type notification — fetch and auto-open that booking's detail
+  // modal, then clear the param so a manual refresh doesn't keep reopening it.
+  useEffect(() => {
+    const openId = searchParams.get("open");
+    if (!openId) return;
+    dispatch(getBooking(openId))
+      .unwrap()
+      .then((res) => {
+        if (res?.data) setSelectedBooking(res.data);
+      })
+      .catch(() => {
+        toast.error("Could not open that booking");
+      });
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("open");
+        return next;
+      },
+      { replace: true },
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, dispatch]);
 
   // Load vendors + drivers once for the allocation pickers
   useEffect(() => {
@@ -963,6 +994,20 @@ export default function Bookings() {
                   <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
                     <Store size={16} /> Vendor
                   </h3>
+                  {selectedBooking.status === "vendor_rejected" && (
+                    <div className="mb-3 bg-red-50 border border-red-200 rounded-lg p-3">
+                      <p className="text-xs font-semibold text-red-700">
+                        Rejected by vendor — needs your action
+                      </p>
+                      <p className="text-xs text-red-600 mt-0.5">
+                        {[...(selectedBooking.statusHistory || [])]
+                          .reverse()
+                          .find((h) => h.status === "vendor_rejected")?.note ||
+                          "No reason provided."}{" "}
+                        Reassign a vendor below, or cancel the order.
+                      </p>
+                    </div>
+                  )}
                   <p className="text-sm font-medium">
                     {selectedBooking.vendor?.name || "Not allocated"}
                   </p>
@@ -1271,6 +1316,47 @@ export default function Bookings() {
                       Assigning a driver marks the order as dispatched and sends
                       it to the driver app.
                     </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Delivery Proof — photo captured by the driver on completion
+                  (D18-19); camera-only capture is enforced app-side. */}
+              {selectedBooking.podPhotoUrl && (
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h3 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+                    <ShieldCheck size={16} /> Delivery Proof
+                  </h3>
+                  <a
+                    href={selectedBooking.podPhotoUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <img
+                      src={selectedBooking.podPhotoUrl}
+                      alt="Proof of delivery"
+                      className="w-40 h-40 object-cover rounded-lg border"
+                    />
+                  </a>
+                  <div className="mt-2 text-xs text-gray-500">
+                    {selectedBooking.podCapturedAt && (
+                      <div>
+                        Captured:{" "}
+                        {new Date(selectedBooking.podCapturedAt).toLocaleString(
+                          "en-IN",
+                          {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          },
+                        )}
+                      </div>
+                    )}
+                    {selectedBooking.driver?.name && (
+                      <div>By: {selectedBooking.driver.name}</div>
+                    )}
                   </div>
                 </div>
               )}

@@ -83,8 +83,19 @@ export default function NotificationBell() {
       }
     }
     setOpen(false);
-    if (n.booking) {
-      navigate("/bookings");
+    // Deep-link to the specific record rather than just the generic list —
+    // Booking.jsx / Quotations.jsx both watch for ?open=<id> and auto-open
+    // that record's detail modal (see their own deep-link effects).
+    if (n.quotation) {
+      const id =
+        typeof n.quotation === "object" ? n.quotation._id : n.quotation;
+      navigate(`/quotations?open=${id}`);
+    } else if (n.booking) {
+      const id = typeof n.booking === "object" ? n.booking._id : n.booking;
+      navigate(`/bookings?open=${id}`);
+    } else if (n.vendor) {
+      const id = typeof n.vendor === "object" ? n.vendor._id : n.vendor;
+      navigate(`/vendors/${id}/materials`);
     }
   };
 

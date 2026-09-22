@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import { useSearchParams } from "react-router-dom";
 import usePolling from "../hooks/usePolling";
 import {
   FileText,
@@ -17,11 +18,13 @@ import {
   IndianRupee,
   Upload,
   FileDown,
+  PackageCheck,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import {
   getQuotations,
   getQuotationCounts,
+  getQuotation,
   respondToQuotation,
   uploadQuotationPdf,
   updateQuotationStatus,
@@ -41,6 +44,12 @@ const STATUS_TABS = [
     icon: CheckCircle2,
     color: "text-green-600",
   },
+  {
+    key: "procurement",
+    label: "Procurement",
+    icon: PackageCheck,
+    color: "text-teal-600",
+  },
   { key: "rejected", label: "Rejected", icon: XCircle, color: "text-red-600" },
   { key: "expired", label: "Expired", icon: Hourglass, color: "text-gray-500" },
 ];
@@ -53,6 +62,8 @@ const statusPillClass = (status) => {
       return "bg-orange-100 text-orange-700";
     case "accepted":
       return "bg-green-100 text-green-700";
+    case "procurement":
+      return "bg-teal-100 text-teal-700";
     case "rejected":
       return "bg-red-100 text-red-700";
     case "expired":
@@ -68,6 +79,7 @@ export default function Quotations() {
     (s) => s.quotations,
   );
   const { vendors } = useSelector((s) => s.vendors);
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [statusTab, setStatusTab] = useState("new");
   const [search, setSearch] = useState("");
@@ -276,6 +288,32 @@ export default function Quotations() {
   useEffect(() => {
     dispatch(getQuotationCounts());
   }, [dispatch]);
+
+  // Deep-link support: NotificationBell navigates here with ?open=<id> for a
+  // quotation-type notification — fetch and auto-open that quotation's detail
+  // modal regardless of which status tab it belongs to, then clear the param
+  // so a manual refresh doesn't keep reopening it.
+  useEffect(() => {
+    const openId = searchParams.get("open");
+    if (!openId) return;
+    dispatch(getQuotation(openId))
+      .unwrap()
+      .then((res) => {
+        if (res?.data) setDetail(res.data);
+      })
+      .catch(() => {
+        toast.error("Could not open that quotation");
+      });
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("open");
+        return next;
+      },
+      { replace: true },
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, dispatch]);
 
   const fetchQuotations = useCallback(() => {
     const params = { status: statusTab, page: 1, limit: 50 };
@@ -543,7 +581,7 @@ export default function Quotations() {
                       >
                         <Eye size={16} /> Details
                       </button>
-                      {q.status !== "accepted" && (
+                      {q.status !== "accepted" && q.status !== "procurement" && (
                         <button
                           onClick={() => openRespond(q)}
                           className="flex items-center gap-1 px-3 py-1.5 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 text-sm"
@@ -726,8 +764,10 @@ export default function Quotations() {
                 />
               </Section>
 
-              {/* Quotation PDF */}
-              <Section title="Quotation Document">
+              {/* Customer's own uploaded RFQ/specification — read-only, admin
+                  cannot overwrite this (it's a separate slot from the OTG
+                  quotation document below). */}
+              <Section title="Customer's Uploaded RFQ / Specification">
                 {detail.quotationPdf?.url ? (
                   <a
                     href={detail.quotationPdf.url}
@@ -740,6 +780,25 @@ export default function Quotations() {
                   </a>
                 ) : (
                   <p className="text-sm text-gray-500">
+                    Customer did not attach a file with this request.
+                  </p>
+                )}
+              </Section>
+
+              {/* OTG's formal quotation back to the customer */}
+              <Section title="OTG Quotation Document">
+                {detail.otgQuotationPdf?.url ? (
+                  <a
+                    href={detail.otgQuotationPdf.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-2 text-sm text-blue-600 hover:underline"
+                  >
+                    <FileDown size={16} />
+                    {detail.otgQuotationPdf.name || "View / Download PDF"}
+                  </a>
+                ) : (
+                  <p className="text-sm text-gray-500">
                     No PDF uploaded for this quotation yet.
                   </p>
                 )}
@@ -749,7 +808,7 @@ export default function Quotations() {
                     <Upload size={16} />
                     {uploadingPdf
                       ? "Uploading..."
-                      : detail.quotationPdf?.url
+                      : detail.otgQuotationPdf?.url
                         ? "Replace PDF"
                         : "Upload PDF"}
                     <input
@@ -761,7 +820,7 @@ export default function Quotations() {
                     />
                   </label>
                   <p className="text-xs text-gray-400 mt-2">
-                    Attach a quotation document (PDF, max 10MB).
+                    Attach OTG's formal quotation document (PDF, max 10MB).
                   </p>
                 </div>
               </Section>

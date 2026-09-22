@@ -18,6 +18,7 @@ import SubCategories from "../pages/SubCategories";
 import Materials from "../pages/Materials";
 import Bookings from "../pages/Booking";
 import Transactions from "../pages/Transactions";
+import CODReconciliation from "../pages/CODReconciliation";
 import Staff from "../pages/Staff";
 import Roles from "../pages/Roles";
 import CMS from "../pages/CMS";
@@ -88,6 +89,7 @@ const AppRoutes = () => {
           <Route path="/bookings" element={<PermissionRoute module="bookings"><Bookings /></PermissionRoute>} />
           <Route path="/quotations" element={<PermissionRoute module="bookings"><Quotations /></PermissionRoute>} />
           <Route path="/transactions" element={<PermissionRoute module="transactions"><Transactions /></PermissionRoute>} />
+          <Route path="/cod-reconciliation" element={<PermissionRoute module="transactions"><CODReconciliation /></PermissionRoute>} />
           <Route path="/staff" element={<PermissionRoute module="staff"><Staff /></PermissionRoute>} />
           <Route path="/roles" element={<PermissionRoute module="roles"><Roles /></PermissionRoute>} />
           <Route path="/cms" element={<PermissionRoute module="cms"><CMS /></PermissionRoute>} />

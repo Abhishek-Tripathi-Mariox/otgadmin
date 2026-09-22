@@ -286,6 +286,38 @@ export const removeVendorMaterial = createAsyncThunk(
 );
 
 // Toggle vendor material availability
+export const approveVendorRateChange = createAsyncThunk(
+  "vendors/approveRateChange",
+  async ({ vendorId, materialId }, { rejectWithValue }) => {
+    try {
+      const response = await api.post(
+        `/vendors/${vendorId}/materials/${materialId}/rate-change/approve`,
+      );
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to approve rate change.",
+      );
+    }
+  },
+);
+
+export const rejectVendorRateChange = createAsyncThunk(
+  "vendors/rejectRateChange",
+  async ({ vendorId, materialId }, { rejectWithValue }) => {
+    try {
+      const response = await api.post(
+        `/vendors/${vendorId}/materials/${materialId}/rate-change/reject`,
+      );
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to reject rate change.",
+      );
+    }
+  },
+);
+
 export const toggleVendorMaterialAvailability = createAsyncThunk(
   "vendors/toggleMaterialAvailability",
   async ({ vendorId, materialId }, { rejectWithValue }) => {
@@ -578,6 +610,43 @@ const vendorSlice = createSlice({
           action.payload.message || "Material removed successfully.";
       })
       .addCase(removeVendorMaterial.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+      // Approve / Reject Rate Change
+      .addCase(approveVendorRateChange.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(approveVendorRateChange.fulfilled, (state, action) => {
+        state.loading = false;
+        const index = state.vendorMaterials.findIndex(
+          (vm) => vm._id === action.payload.data._id,
+        );
+        if (index !== -1) {
+          state.vendorMaterials[index] = action.payload.data;
+        }
+        state.message = action.payload.message || "Rate change approved.";
+      })
+      .addCase(approveVendorRateChange.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+      .addCase(rejectVendorRateChange.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(rejectVendorRateChange.fulfilled, (state, action) => {
+        state.loading = false;
+        const index = state.vendorMaterials.findIndex(
+          (vm) => vm._id === action.payload.data._id,
+        );
+        if (index !== -1) {
+          state.vendorMaterials[index] = action.payload.data;
+        }
+        state.message = action.payload.message || "Rate change rejected.";
+      })
+      .addCase(rejectVendorRateChange.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       })

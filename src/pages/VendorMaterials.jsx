@@ -16,6 +16,8 @@ import {
   getVendorMaterials,
   addVendorMaterial,
   updateVendorMaterial,
+  approveVendorRateChange,
+  rejectVendorRateChange,
   removeVendorMaterial,
   toggleVendorMaterialAvailability,
   getVendor,
@@ -170,6 +172,16 @@ export default function VendorMaterials() {
 
   const handleToggleAvailability = async (materialId) => {
     await dispatch(toggleVendorMaterialAvailability({ vendorId, materialId }));
+  };
+
+  const handleApproveRateChange = async (materialId) => {
+    await dispatch(approveVendorRateChange({ vendorId, materialId }));
+  };
+
+  const handleRejectRateChange = async (materialId) => {
+    if (confirm("Reject this rate change? The vendor's price stays as-is.")) {
+      await dispatch(rejectVendorRateChange({ vendorId, materialId }));
+    }
   };
 
   // Filter materials for selection (exclude already added)
@@ -359,6 +371,27 @@ export default function VendorMaterials() {
                   <div className="text-xs text-gray-500">
                     per {vm.material?.unit}
                   </div>
+                  {vm.pendingPrice != null && (
+                    <div className="mt-2 p-2 rounded-lg bg-amber-50 border border-amber-200">
+                      <div className="text-xs font-medium text-amber-800">
+                        Requested: ₹{vm.pendingPrice.toLocaleString()}
+                      </div>
+                      <div className="flex gap-2 mt-1.5">
+                        <button
+                          onClick={() => handleApproveRateChange(vm.material?._id)}
+                          className="text-[11px] px-2 py-1 rounded-md bg-green-600 text-white hover:bg-green-700"
+                        >
+                          Approve
+                        </button>
+                        <button
+                          onClick={() => handleRejectRateChange(vm.material?._id)}
+                          className="text-[11px] px-2 py-1 rounded-md bg-red-100 text-red-700 hover:bg-red-200"
+                        >
+                          Reject
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </td>
                 <td className="p-4 text-sm text-gray-600">
                   <div>Min: {vm.minOrderQty || 1}</div>
